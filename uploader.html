@@ -20,13 +20,15 @@
         <div class="setup-area">
             <p style="font-size:0.85rem; color:#bdc3c7;">① プレイリストの名前を入力してください。</p>
             <input type="text" id="event-name" placeholder="例：予選Aブロック">
-            <p style="font-size:0.85rem; color:#bdc3c7; margin-top:15px;">② フォルダを選択してください。<br><span style="color:#e74c3c;">※DB負担軽減のため、1回5〜10曲を推奨します。</span></p>
+            <p style="font-size:0.85rem; color:#bdc3c7; margin-top:15px;">② フォルダを選択してください。<br><span style="color:#e74c3c;">※DB負担軽減のため、1回5〜10曲程度にカットした短い音源を推奨します。</span></p>
+            
             <button onclick="document.getElementById('audio-files').click()" style="background:#2ecc71;">1. イントロフォルダを選択</button>
             <button onclick="document.getElementById('sabi-files').click()" style="background:#e67e22;">2. サビフォルダを選択</button>
             <button id="btn-upload" style="background:#e05275; margin-top:20px; display:none;">3. データベースに保存（送信）</button>
             
-            <input type="file" id="audio-files" multiple accept="audio/*" style="display:none">
-            <input type="file" id="sabi-files" multiple accept="audio/*" style="display:none">
+            <!-- MP3やM4Aなどを許可するよう修正 -->
+            <input type="file" id="audio-files" multiple accept="audio/*,.mp3,.m4a,.wav" style="display:none">
+            <input type="file" id="sabi-files" multiple accept="audio/*,.mp3,.m4a,.wav" style="display:none">
         </div>
         <div id="status"></div>
     </div>
@@ -34,14 +36,15 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script>
-        // ▼▼▼ Firebaseの設定を貼り付け ▼▼▼
         const firebaseConfig = {
-            apiKey: "ここに貼り付け",
-            authDomain: "...",
-            projectId: "...",
-            storageBucket: "...",
-            messagingSenderId: "...",
-            appId: "..."
+            apiKey: "AIzaSyDzIx3CN5EnlznHgXMDNDb5Bulk9lpQpBw",
+            authDomain: "mmym-intr-hyosbt.firebaseapp.com",
+            databaseURL: "https://mmym-intr-hyosbt-default-rtdb.firebaseio.com",
+            projectId: "mmym-intr-hyosbt",
+            storageBucket: "mmym-intr-hyosbt.firebasestorage.app",
+            messagingSenderId: "581272142056",
+            appId: "1:581272142056:web:25101dd8425e884f21c95d",
+            measurementId: "G-2MNRCP27T9"
         };
         try { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); } catch (e) {}
 
