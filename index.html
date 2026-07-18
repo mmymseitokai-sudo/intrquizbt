@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>メインモニター - 早押し判定システム</title>
+    <title>メインモニター - 早押し判定</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 20px; background: #fafafa; color: #333; }
@@ -14,6 +14,7 @@
         .rank-item.ng { text-decoration: line-through; color: #ccc; }
         .rank-badge { font-weight: bold; margin-right: 25px; display: inline-block; width: 100px; }
         .status-text { font-size: 1.4rem; font-weight: bold; }
+        .status-lamp { display: inline-block; width: 15px; height: 15px; border-radius: 50%; background: #ccc; margin-right: 10px; vertical-align: middle; }
         .audio-status { margin-top: 30px; font-weight: bold; color: #3498db; }
     </style>
 </head>
@@ -22,20 +23,24 @@
         <h1>早押し順位</h1>
         <div class="audio-status" id="audio-status"></div>
         <div id="ranking-list"><div style="text-align:center; color:#ccc; line-height: 200px; font-size: 1.5rem;">待機中</div></div>
-        <div style="margin-top:40px; color:#999; font-size:0.9rem; text-align: left;"><label><input type="checkbox" id="mute-toggle" checked> この端末で音楽・効果音を鳴らす</label></div>
+        <div style="margin-top:40px; color:#999; font-size:0.9rem; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+            <div><span id="lamp" class="status-lamp"></span>システム接続: <span id="conn-status">接続中</span></div>
+            <div><label><input type="checkbox" id="mute-toggle" checked> この端末で音楽・効果音を鳴らす</label></div>
+        </div>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script>
-        // ▼▼▼ Firebaseの設定を貼り付け ▼▼▼
         const firebaseConfig = {
-            apiKey: "ここに貼り付け",
-            authDomain: "...",
-            projectId: "...",
-            storageBucket: "...",
-            messagingSenderId: "...",
-            appId: "..."
+            apiKey: "AIzaSyDzIx3CN5EnlznHgXMDNDb5Bulk9lpQpBw",
+            authDomain: "mmym-intr-hyosbt.firebaseapp.com",
+            databaseURL: "https://mmym-intr-hyosbt-default-rtdb.firebaseio.com",
+            projectId: "mmym-intr-hyosbt",
+            storageBucket: "mmym-intr-hyosbt.firebasestorage.app",
+            messagingSenderId: "581272142056",
+            appId: "1:581272142056:web:25101dd8425e884f21c95d",
+            measurementId: "G-2MNRCP27T9"
         };
         try { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); } catch (e) {}
 
@@ -93,6 +98,12 @@
             if (typeof window.lastLen !== 'undefined' && window.lastLen !== null && queue.length > window.lastLen) { playSound('ping'); if (enableSound) { musicPlayer.pause(); sabiPlayer.pause(); } }
             if (judgment === 'correct') playSound('ok'); if (judgment === 'incorrect') playSound('ng');
             window.lastLen = queue.length;
+        });
+
+        db.ref(".info/connected").on("value", (snap) => {
+            const lamp = document.getElementById('lamp');
+            if(snap.val()) { lamp.style.background = "#2ecc71"; document.getElementById('conn-status').innerText = "接続完了"; }
+            else { lamp.style.background = "#ccc"; document.getElementById('conn-status').innerText = "未接続"; }
         });
     </script>
 </body>
