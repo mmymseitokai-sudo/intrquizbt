@@ -2,56 +2,97 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>早押しボタン - プレイヤー画面</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>管理者画面 - 早押し＆音源連動システム</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 20px; background: #fafafa; color: #333; touch-action: manipulation; }
-        .container { max-width: 400px; margin: 0 auto; }
-        h2 { font-size: 1.1rem; font-weight: 600; color: #777; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 0.05em; }
-        input { font-size: 1.1rem; padding: 12px; width: 85%; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 8px; outline: none; transition: border 0.2s; }
-        input:focus { border-color: #e05275; }
-        button { cursor: pointer; font-family: inherit; font-weight: 600; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 15px; background: #f8f9fa; color: #333; touch-action: manipulation; }
+        .container { max-width: 500px; margin: 0 auto; background: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        h1 { font-size: 1.2rem; font-weight: 600; color: #555; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 0.05em; }
         
-        #login-screen { margin-top: 50px; }
-        #login-btn { font-size: 1.1rem; padding: 12px 35px; background: #333; color: white; border: none; border-radius: 8px; }
-        #game-screen { display: none; }
-        #display-name { font-size: 1.2rem; color: #666; margin-bottom: 30px; }
+        /* 音楽プレイヤーエリア */
+        .audio-section { background: #fafafa; border: 1px solid #eee; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: left; }
+        .audio-title { font-size: 0.9rem; font-weight: bold; color: #777; margin-bottom: 10px; }
+        #track-info { font-size: 1rem; color: #333; font-weight: 600; margin-bottom: 10px; min-height: 1.2em; word-break: break-all; }
+        .audio-btn-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
+        .audio-btn-row button { width: 30%; font-size: 0.9rem; padding: 8px; margin: 0; background: #f1f1f1; color: #333; box-shadow: none; }
         
-        /* 早押しボタン（洗練されたローズピンク） */
-        #btn {
-            width: 80vw; height: 80vw; max-width: 280px; max-height: 280px;
-            border-radius: 50%; border: none;
-            font-size: 1.8rem; color: white;
-            background: #e5e5e5;
-            box-shadow: 0 8px #cccccc;
-            transition: all 0.1s;
-        }
-        #btn.active {
-            background: #e05275 !important;
-            box-shadow: 0 8px #b83251 !important;
-        }
-        #btn:active { transform: translateY(4px); box-shadow: 0 4px #999; }
+        /* プレイリスト表示エリア */
+        #playlist-section { display: none; margin-top: 15px; border-top: 1px dashed #ddd; padding-top: 15px; }
+        #playlist-box { max-height: 180px; overflow-y: auto; border: 1px solid #eee; border-radius: 6px; background: #fff; text-align: left; }
+        .playlist-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-bottom: 1px solid #f9f9f9; font-size: 0.9rem; cursor: pointer; }
+        .playlist-item:last-child { border-bottom: none; }
+        .playlist-item.active { background: #fff0f2; color: #e05275; font-weight: bold; }
+        .playlist-title { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; }
+        .playlist-controls button { width: auto; display: inline-block; padding: 3px 10px; margin: 0 2px; font-size: 0.8rem; background: #f1f1f1; color: #333; border-radius: 4px; border: none; box-shadow: none; font-weight: bold; }
+        .playlist-controls button:active { background: #ddd; }
+
+        /* 順位リスト */
+        #ranking-list { text-align: left; margin: 15px 0; min-height: 80px; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 10px 0; }
+        .rank-item { padding: 12px 10px; border-bottom: 1px solid #f1f1f1; font-size: 1.1rem; color: #888; display: flex; justify-content: space-between; }
+        .rank-item:last-child { border-bottom: none; }
+        .rank-item.active { background: #fff0f2; color: #e05275; font-weight: bold; border-radius: 6px; }
+        .rank-item.ng { text-decoration: line-through; color: #ccc; }
+        .rank-badge { font-weight: bold; margin-right: 15px; display: inline-block; width: 60px; }
         
-        #status { margin-top: 30px; font-weight: 600; font-size: 1.5rem; min-height: 1.5rem; color: #555; }
-        #rank-info { margin-top: 15px; font-size: 1rem; color: #999; }
+        /* 操作ボタン */
+        button { font-size: 1.1rem; padding: 14px; margin: 8px 0; width: 100%; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; transition: background 0.2s; }
+        #judge-area { display: none; margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ddd; display: flex; justify-content: space-between; }
+        
+        #btn-ok { background: #e05275; color: white; width: 48%; }
+        #btn-ok:hover { background: #c93b5d; }
+        #btn-ng { background: #4a90e2; color: white; width: 48%; }
+        #btn-ng:hover { background: #357abd; }
+        
+        #start { background: #2ecc71; color: white; }
+        #start:hover { background: #27ae60; }
+        #lock { background: #f39c12; color: white; }
+        #lock:hover { background: #d35400; }
+        #reset { background: #95a5a6; color: white; }
+        #reset:hover { background: #7f8c8d; }
+        
+        button:active { transform: translateY(1px); }
+        .status-lamp { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #ccc; margin-right: 8px; vertical-align: middle; }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- 1. チーム名入力 -->
-        <div id="login-screen">
-            <h2>チーム名設定</h2>
-            <input type="text" id="team-name" placeholder="チーム名を入力してください">
-            <br>
-            <button id="login-btn" onclick="joinGame()">決定</button>
+        <h1>早押し・音源連動判定</h1>
+
+        <!-- 音源読み込みセクション -->
+        <div class="audio-section">
+            <div class="audio-title">イントロ用音源</div>
+            <div id="track-info">音源が読み込まれていません</div>
+            <div class="audio-btn-row">
+                <button onclick="document.getElementById('audio-files').click()">音源を選択</button>
+                <button id="btn-audio-prev" onclick="changeTrack(-1)">前の曲</button>
+                <button id="btn-audio-next" onclick="changeTrack(1)">次の曲</button>
+            </div>
+            <!-- 複数ファイルを一括選択できるインプット -->
+            <input type="file" id="audio-files" multiple accept="audio/*" style="display:none">
+
+            <!-- プレイリスト管理表示エリア -->
+            <div id="playlist-section">
+                <div class="audio-title">プレイリスト（順序変更・選択）</div>
+                <div id="playlist-box"></div>
+            </div>
         </div>
 
-        <!-- 2. 早押し画面 -->
-        <div id="game-screen">
-            <div id="display-name"></div>
-            <button id="btn" disabled>準備中</button>
-            <div id="status"></div>
-            <div id="rank-info"></div>
+        <div id="ranking-list">
+            <div style="text-align:center; color:#ccc; line-height: 80px;">待機中</div>
+        </div>
+
+        <!-- 判定エリア -->
+        <div id="judge-area">
+            <button id="btn-ok">正解</button>
+            <button id="btn-ng">不正解</button>
+        </div>
+        
+        <button id="start">次の問題（音楽スタート）</button>
+        <button id="lock">受付終了（ロック）</button>
+        <button id="reset">全リセット（音楽停止）</button>
+
+        <div style="margin-top:25px; color:#999; font-size:0.8rem;">
+            <span id="lamp" class="status-lamp"></span>システム接続: <span id="conn-status">接続中</span>
         </div>
     </div>
 
@@ -72,92 +113,241 @@
 
         const db = firebase.database();
         const ref = db.ref('quiz_room');
-        let myName = "";
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-        function joinGame() {
-            const input = document.getElementById('team-name');
-            if (!input.value) return;
-            myName = input.value;
-            document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('game-screen').style.display = 'block';
-            document.getElementById('display-name').innerText = "チーム名: " + myName;
+        // イントロ再生用のAudioオブジェクト
+        let musicPlayer = new Audio();
+        let loadedTracks = [];
+        let currentTrackIndex = 0;
+
+        // 音源が選択されたとき
+        document.getElementById('audio-files').addEventListener('change', (e) => {
+            loadedTracks = Array.from(e.target.files);
+            // ファイル名順に初期並び替え
+            loadedTracks.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+            currentTrackIndex = 0;
+            updateTrackDisplay();
+            renderTrackList();
+        });
+
+        // 曲情報を更新
+        function updateTrackDisplay() {
+            const info = document.getElementById('track-info');
+            if (loadedTracks.length > 0) {
+                const file = loadedTracks[currentTrackIndex];
+                info.innerText = `[${currentTrackIndex + 1}/${loadedTracks.length}] ${file.name}`;
+            } else {
+                info.innerText = "音源が読み込まれていません";
+            }
         }
 
-        const btn = document.getElementById('btn');
-        const status = document.getElementById('status');
-        const rankInfo = document.getElementById('rank-info');
+        // プレイリストの再描画
+        function renderTrackList() {
+            const section = document.getElementById('playlist-section');
+            const box = document.getElementById('playlist-box');
+            if (loadedTracks.length === 0) {
+                section.style.display = 'none';
+                return;
+            }
+            section.style.display = 'block';
+            let html = '';
+            loadedTracks.forEach((file, i) => {
+                const isActive = (i === currentTrackIndex) ? 'active' : '';
+                html += `
+                    <div class="playlist-item ${isActive}" onclick="selectTrack(${i})">
+                        <div class="playlist-title">${i + 1}. ${file.name}</div>
+                        <div class="playlist-controls">
+                            <button onclick="moveTrackUp(${i}, event)">↑</button>
+                            <button onclick="moveTrackDown(${i}, event)">↓</button>
+                        </div>
+                    </div>
+                `;
+            });
+            box.innerHTML = html;
+        }
+
+        // 直接曲を選択する
+        window.selectTrack = function(index) {
+            musicPlayer.pause();
+            currentTrackIndex = index;
+            updateTrackDisplay();
+            renderTrackList();
+        }
+
+        // 曲順を上げる（上へ）
+        window.moveTrackUp = function(index, event) {
+            event.stopPropagation(); // 親要素のclick（曲選択）を防止
+            if (index === 0) return;
+            const temp = loadedTracks[index];
+            loadedTracks[index] = loadedTracks[index - 1];
+            loadedTracks[index - 1] = temp;
+            
+            // 現在選択中の曲のインデックスを維持する
+            if (currentTrackIndex === index) currentTrackIndex--;
+            else if (currentTrackIndex === index - 1) currentTrackIndex++;
+            
+            updateTrackDisplay();
+            renderTrackList();
+        }
+
+        // 曲順を下げる（下へ）
+        window.moveTrackDown = function(index, event) {
+            event.stopPropagation(); // 親要素のclick（曲選択）を防止
+            if (index === loadedTracks.length - 1) return;
+            const temp = loadedTracks[index];
+            loadedTracks[index] = loadedTracks[index + 1];
+            loadedTracks[index + 1] = temp;
+            
+            if (currentTrackIndex === index) currentTrackIndex++;
+            else if (currentTrackIndex === index + 1) currentTrackIndex--;
+            
+            updateTrackDisplay();
+            renderTrackList();
+        }
+
+        // 曲切り替えボタン用
+        function changeTrack(direction) {
+            if (loadedTracks.length === 0) return;
+            musicPlayer.pause();
+            currentTrackIndex += direction;
+            if (currentTrackIndex < 0) currentTrackIndex = loadedTracks.length - 1;
+            if (currentTrackIndex >= loadedTracks.length) currentTrackIndex = 0;
+            updateTrackDisplay();
+            renderTrackList();
+        }
+
+        // 効果音（正解・不正解など）
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            const now = audioCtx.currentTime;
+
+            if (type === 'ping') {
+                osc.type = 'sine'; osc.frequency.setValueAtTime(880, now); osc.frequency.setValueAtTime(1760, now+0.1);
+                gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now+0.4);
+                osc.start(); osc.stop(now+0.4);
+            } else if (type === 'ok') {
+                osc.type = 'triangle'; osc.frequency.setValueAtTime(1320, now); osc.frequency.setValueAtTime(1320, now+0.2);
+                gain.gain.setValueAtTime(0.3, now); gain.gain.setValueAtTime(0, now+0.15); gain.gain.setValueAtTime(0.3, now+0.2); gain.gain.exponentialRampToValueAtTime(0.01, now+0.6);
+                osc.start(); osc.stop(now+0.6);
+            } else if (type === 'ng') {
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now); osc.frequency.linearRampToValueAtTime(100, now+0.4);
+                gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now+0.4);
+                osc.start(); osc.stop(now+0.4);
+            }
+        }
+
+        let currentQueue = [];
+        let currentIndex = 0;
 
         ref.on('value', (snapshot) => {
             const data = snapshot.val() || {};
-            const state = data.state || 'closed';
             const queue = data.queue || [];
             const idx = data.current_index || 0;
-            const judgment = data.judgment;
+            currentQueue = queue;
+            currentIndex = idx;
+            
+            const listDiv = document.getElementById('ranking-list');
+            const judgeArea = document.getElementById('judge-area');
 
-            const myRankIndex = queue.indexOf(myName);
-            const amIInQueue = myRankIndex !== -1;
-
-            // 受付中かつ未押下の場合
-            if (state === 'open' && !amIInQueue) {
-                btn.disabled = false;
-                btn.className = 'active';
-                btn.style.background = "#e05275";
-                btn.innerText = "早押し";
-                status.innerText = "";
-                rankInfo.innerText = "";
-            } 
-            // 受付終了かつ未押下の場合（新規追加ロック状態）
-            else if (state === 'closed' && !amIInQueue) {
-                btn.disabled = true;
-                btn.className = '';
-                btn.style.background = "#e5e5e5";
-                btn.innerText = "受付終了";
-                status.innerText = queue.length > 0 ? "他のチームが回答中です" : "解答権の受付を終了しました";
-                rankInfo.innerText = "";
-            }
-            // すでに自分が押している場合
-            else {
-                btn.disabled = true;
-                btn.className = '';
-                
-                if (amIInQueue) {
-                    if (myRankIndex === idx) {
-                        // 自分の解答順
-                        if (judgment === 'correct') {
-                            btn.style.background = "#f39c12"; btn.innerText = "正解";
-                            status.style.color = "#f39c12"; status.innerText = "正解";
-                            rankInfo.innerText = "";
-                        } else if (judgment === 'incorrect') {
-                            btn.style.background = "#4a90e2"; btn.innerText = "不正解";
-                            status.style.color = "#4a90e2"; status.innerText = "不正解";
-                            rankInfo.innerText = "";
-                        } else {
-                            btn.style.background = "#e05275"; btn.innerText = "解答権獲得";
-                            status.style.color = "#e05275"; status.innerText = "あなたの解答順です";
-                            rankInfo.innerText = "お答えください";
-                        }
-                    } else if (myRankIndex > idx) {
-                        // 控えている状態
-                        btn.style.background = "#e5e5e5"; btn.innerText = (myRankIndex + 1) + "番手";
-                        status.style.color = "#333"; status.innerText = "待機中";
-                        rankInfo.innerText = `現在 ${myRankIndex + 1}番目に控えています`;
-                    } else {
-                        // 解答終了（不正解で流れた後）
-                        btn.style.background = "#888"; btn.innerText = "回答終了";
-                        status.style.color = "#888"; status.innerText = "判定終了";
-                        rankInfo.innerText = "";
+            if (queue.length === 0) {
+                listDiv.innerHTML = '<div style="text-align:center; color:#ccc; line-height: 80px;">待機中</div>';
+                judgeArea.style.display = 'none';
+            } else {
+                let html = '';
+                queue.forEach((name, i) => {
+                    let className = 'rank-item';
+                    let status = '';
+                    if (i === idx) {
+                        className += ' active';
+                        status = '回答中';
                     }
+                    if (i < idx) {
+                        className += ' ng';
+                        status = '不正解';
+                    }
+                    html += `<div class="${className}"><span class="rank-badge">${i+1}番手</span><span>${name}</span><span>${status}</span></div>`;
+                });
+                listDiv.innerHTML = html;
+                
+                if (idx < queue.length) {
+                    judgeArea.style.display = 'flex';
+                } else {
+                    judgeArea.style.display = 'none';
                 }
             }
+            
+            if (window.lastLen && queue.length > window.lastLen) {
+                playSound('ping');
+                musicPlayer.pause(); // 誰かが押したら音楽を自動で一時停止
+            }
+            window.lastLen = queue.length;
         });
 
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            ref.child('queue').transaction((currentQueue) => {
-                if (currentQueue === null) return [myName];
-                if (currentQueue.includes(myName)) return;
-                return [...currentQueue, myName];
+        // ⭕️ 正解
+        document.getElementById('btn-ok').addEventListener('click', () => {
+            playSound('ok');
+            musicPlayer.pause();
+            ref.update({ judgment: 'correct' });
+        });
+
+        // ❌ 不正解
+        document.getElementById('btn-ng').addEventListener('click', () => {
+            playSound('ng');
+            ref.update({ judgment: 'incorrect' });
+            
+            // 1.2秒後に次の人に権限を移し、音楽を再開する
+            setTimeout(() => {
+                ref.transaction((data) => {
+                    if (data) {
+                        data.judgment = null;
+                        data.current_index = (data.current_index || 0) + 1;
+                    }
+                    return data;
+                });
+                
+                // 次の人が回答できるよう、自動で音楽を途中から再開！
+                if (loadedTracks.length > 0 && musicPlayer.paused && currentIndex < currentQueue.length) {
+                    musicPlayer.play().catch(e => console.log("再生失敗: ", e));
+                }
+            }, 1200);
+        });
+
+        // スタート（曲も自動再生）
+        document.getElementById('start').addEventListener('click', () => {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            window.lastLen = 0;
+            
+            ref.once('value').then((snapshot) => {
+                const data = snapshot.val() || {};
+                if (data.judgment === 'correct') {
+                    changeTrack(1); // 正解していたら次の曲に進む
+                }
+                
+                // 音楽を最初から再生
+                if (loadedTracks.length > 0) {
+                    const file = loadedTracks[currentTrackIndex];
+                    musicPlayer.src = URL.createObjectURL(file);
+                    musicPlayer.currentTime = 0;
+                    musicPlayer.play().catch(e => console.log("再生失敗: ", e));
+                }
+
+                ref.set({ state: 'open', queue: [], current_index: 0, judgment: null });
             });
+        });
+
+        // 全リセット（音楽も停止）
+        document.getElementById('reset').addEventListener('click', () => {
+            musicPlayer.pause();
+            ref.set({ state: 'closed', queue: [], current_index: 0, judgment: null });
+        });
+
+        db.ref(".info/connected").on("value", (snap) => {
+            const lamp = document.getElementById('lamp');
+            if(snap.val()) { lamp.style.background = "#2ecc71"; document.getElementById('conn-status').innerText = "接続完了"; }
+            else { lamp.style.background = "#ccc"; document.getElementById('conn-status').innerText = "未接続"; }
         });
     </script>
 </body>
