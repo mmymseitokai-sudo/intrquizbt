@@ -35,14 +35,15 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script>
-        // ▼▼▼ Firebaseの設定を貼り付け ▼▼▼
         const firebaseConfig = {
-            apiKey: "ここに貼り付け",
-            authDomain: "...",
-            projectId: "...",
-            storageBucket: "...",
-            messagingSenderId: "...",
-            appId: "..."
+            apiKey: "AIzaSyDzIx3CN5EnlznHgXMDNDb5Bulk9lpQpBw",
+            authDomain: "mmym-intr-hyosbt.firebaseapp.com",
+            databaseURL: "https://mmym-intr-hyosbt-default-rtdb.firebaseio.com",
+            projectId: "mmym-intr-hyosbt",
+            storageBucket: "mmym-intr-hyosbt.firebasestorage.app",
+            messagingSenderId: "581272142056",
+            appId: "1:581272142056:web:25101dd8425e884f21c95d",
+            measurementId: "G-2MNRCP27T9"
         };
         try { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); } catch (e) {}
         const db = firebase.database(); const ref = db.ref('quiz_room'); let myName = "";
