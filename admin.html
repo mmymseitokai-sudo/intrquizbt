@@ -37,14 +37,13 @@
         #start { background: #3498db; color: white; }
         #lock { background: #f1c40f; color: #333; }
         #reset { background: #95a5a6; color: white; }
-        .status-lamp { display: inline-block; width: 10px; height: 12px; border-radius: 50%; background: #ccc; margin-right: 8px; vertical-align: middle; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>GMコントロールパネル</h1>
         <div class="selector-section">
-            <div style="font-size:0.8rem; font-weight:bold; color:#95a5a6; margin-bottom:8px;">クラウドからリストを呼び出す</div>
+            <div style="font-size:0.8rem; font-weight:bold; color:#95a5a6; margin-bottom:8px;">リストを呼び出す</div>
             <div>
                 <select id="playlist-selector"><option value="">読込中...</option></select>
                 <button id="btn-load-playlist">セット</button>
@@ -71,15 +70,11 @@
         <button id="start" class="action-btn">次の問題（イントロスタート）</button>
         <button id="lock" class="action-btn">受付終了（ロック）</button>
         <button id="reset" class="action-btn">全リセット（音楽停止）</button>
-        <div style="margin-top:20px; color:#bdc3c7; font-size:0.75rem;">
-            <span id="lamp" class="status-lamp"></span>接続: <span id="conn-status">接続中</span>
-        </div>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script>
-        // ▼▼▼ Firebaseの設定を貼り付け ▼▼▼
         const firebaseConfig = {
             apiKey: "AIzaSyDzIx3CN5EnlznHgXMDNDb5Bulk9lpQpBw",
             authDomain: "mmym-intr-hyosbt.firebaseapp.com",
@@ -105,7 +100,7 @@
         document.getElementById('btn-load-playlist').addEventListener('click', () => {
             const selectedKey = document.getElementById('playlist-selector').value;
             if (!selectedKey || !window.savedPlaylistsData[selectedKey]) return;
-            if (confirm(`「${selectedKey}」のリストをセットしますか？\n（プロジェクター側が自動で音源をダウンロードします）`)) {
+            if (confirm(`「${selectedKey}」のリストをセットしますか？`)) {
                 sendAudioCommand('stop_all');
                 ref.update({ playlist: window.savedPlaylistsData[selectedKey], current_event: selectedKey, current_index: 0, state: 'closed', queue: [], judgment: null });
             }
@@ -157,7 +152,6 @@
             currentPlaylist = data.playlist || []; currentTrackIndex = idx;
             const listDiv = document.getElementById('ranking-list'); const judgeArea = document.getElementById('judge-area');
             renderTrackList(); updateTrackDisplay();
-
             if (queue.length === 0) { listDiv.innerHTML = '<div style="text-align:center; color:#7f8c8d; line-height: 60px;">待機中</div>'; judgeArea.style.display = 'none'; } 
             else {
                 let html = ''; queue.forEach((name, i) => {
@@ -184,9 +178,14 @@
             });
         });
         document.getElementById('lock').addEventListener('click', () => ref.update({ state: 'closed' }));
-        document.getElementById('reset').addEventListener('click', () => { sendAudioCommand('stop_all'); ref.update({ state: 'closed', queue: [], current_index: 0, judgment: null }); });
+        
+        // 全リセット：音を止め、判定をnullにして無音でリセットします
+        document.getElementById('reset').addEventListener('click', () => { 
+            sendAudioCommand('stop_all'); 
+            ref.update({ state: 'closed', queue: [], current_index: 0, judgment: null }); 
+        });
 
-        db.ref(".info/connected").on("value", (snap) => { const lamp = document.getElementById('lamp'); if(snap.val()) { lamp.style.background = "#2ecc71"; document.getElementById('conn-status').innerText = "接続完了"; } else { lamp.style.background = "#ccc"; document.getElementById('conn-status').innerText = "未接続"; } });
+        db.ref(".info/connected").on("value", (snap) => { if(snap.val()) { document.getElementById('conn-status').innerText = "接続完了"; } else { document.getElementById('conn-status').innerText = "未接続"; } });
     </script>
 </body>
 </html>
