@@ -17,7 +17,6 @@
         #game-screen { display: none; }
         #display-name { font-size: 1.2rem; color: #666; margin-bottom: 30px; }
         
-        /* 早押しボタン（洗練されたローズピンク） */
         #btn {
             width: 80vw; height: 80vw; max-width: 280px; max-height: 280px;
             border-radius: 50%; border: none;
@@ -97,7 +96,6 @@
             const myRankIndex = queue.indexOf(myName);
             const amIInQueue = myRankIndex !== -1;
 
-            // 受付中かつ未押下の場合
             if (state === 'open' && !amIInQueue) {
                 btn.disabled = false;
                 btn.className = 'active';
@@ -106,7 +104,6 @@
                 status.innerText = "";
                 rankInfo.innerText = "";
             } 
-            // 受付終了かつ未押下の場合（新規追加ロック状態）
             else if (state === 'closed' && !amIInQueue) {
                 btn.disabled = true;
                 btn.className = '';
@@ -115,14 +112,12 @@
                 status.innerText = queue.length > 0 ? "他のチームが回答中です" : "解答権の受付を終了しました";
                 rankInfo.innerText = "";
             }
-            // すでに自分が押している場合
             else {
                 btn.disabled = true;
                 btn.className = '';
                 
                 if (amIInQueue) {
                     if (myRankIndex === idx) {
-                        // 自分の解答順
                         if (judgment === 'correct') {
                             btn.style.background = "#f39c12"; btn.innerText = "正解";
                             status.style.color = "#f39c12"; status.innerText = "正解";
@@ -137,12 +132,10 @@
                             rankInfo.innerText = "お答えください";
                         }
                     } else if (myRankIndex > idx) {
-                        // 控えている状態
                         btn.style.background = "#e5e5e5"; btn.innerText = (myRankIndex + 1) + "番手";
                         status.style.color = "#333"; status.innerText = "待機中";
                         rankInfo.innerText = `現在 ${myRankIndex + 1}番目に控えています`;
                     } else {
-                        // 解答終了（不正解で流れた後）
                         btn.style.background = "#888"; btn.innerText = "回答終了";
                         status.style.color = "#888"; status.innerText = "判定終了";
                         rankInfo.innerText = "";
