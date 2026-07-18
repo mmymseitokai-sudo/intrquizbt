@@ -79,6 +79,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script>
+        // ▼▼▼ Firebaseの設定を貼り付け ▼▼▼
         const firebaseConfig = {
             apiKey: "AIzaSyDzIx3CN5EnlznHgXMDNDb5Bulk9lpQpBw",
             authDomain: "mmym-intr-hyosbt.firebaseapp.com",
@@ -183,7 +184,7 @@
             });
         });
         document.getElementById('lock').addEventListener('click', () => ref.update({ state: 'closed' }));
-        document.getElementById('reset').addEventListener('click', () => { sendAudioCommand('stop_all'); ref.set({ state: 'closed', queue: [], current_index: 0, judgment: null }); });
+        document.getElementById('reset').addEventListener('click', () => { sendAudioCommand('stop_all'); ref.update({ state: 'closed', queue: [], current_index: 0, judgment: null }); });
 
         db.ref(".info/connected").on("value", (snap) => { const lamp = document.getElementById('lamp'); if(snap.val()) { lamp.style.background = "#2ecc71"; document.getElementById('conn-status').innerText = "接続完了"; } else { lamp.style.background = "#ccc"; document.getElementById('conn-status').innerText = "未接続"; } });
     </script>
