@@ -5,134 +5,94 @@
     <title>メインモニター - 早押し判定システム</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 40px 20px; background: #fafafa; color: #333; }
+        body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 20px; background: #fafafa; color: #333; }
         .container { max-width: 800px; margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
         h1 { font-size: 2rem; font-weight: 600; color: #555; margin-bottom: 40px; letter-spacing: 0.1em; }
-        
         #ranking-list { text-align: left; margin: 30px 0; min-height: 200px; border-top: 2px dashed #eee; border-bottom: 2px dashed #eee; padding: 20px 0; }
         .rank-item { padding: 20px 15px; border-bottom: 1px solid #f9f9f9; font-size: 1.8rem; color: #999; display: flex; justify-content: space-between; align-items: center; transition: all 0.3s; }
-        .rank-item:last-child { border-bottom: none; }
-        
-        /* 回答中のハイライト表示 */
-        .rank-item.active { background: #fff0f2; color: #e05275; font-weight: bold; border-radius: 10px; transform: scale(1.02); box-shadow: 0 4px 15px rgba(224,82,117,0.1); }
+        .rank-item.active { background: #fff0f2; color: #e05275; font-weight: bold; border-radius: 10px; transform: scale(1.02); }
         .rank-item.ng { text-decoration: line-through; color: #ccc; }
         .rank-badge { font-weight: bold; margin-right: 25px; display: inline-block; width: 100px; }
-        
         .status-text { font-size: 1.4rem; font-weight: bold; }
-        .status-lamp { display: inline-block; width: 15px; height: 15px; border-radius: 50%; background: #ccc; margin-right: 10px; vertical-align: middle; }
+        .audio-status { margin-top: 30px; font-weight: bold; color: #3498db; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>早押し順位</h1>
-        <div id="ranking-list">
-            <div style="text-align:center; color:#ccc; line-height: 200px; font-size: 1.5rem;">待機中</div>
-        </div>
-
-        <div style="margin-top:40px; color:#999; font-size:0.9rem; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <span id="lamp" class="status-lamp"></span>システム接続: <span id="conn-status">接続中</span>
-            </div>
-            <div>
-                <label style="cursor:pointer;"><input type="checkbox" id="mute-toggle" checked> この端末で早押し/正誤判定音を鳴らす</label>
-            </div>
-        </div>
+        <div class="audio-status" id="audio-status"></div>
+        <div id="ranking-list"><div style="text-align:center; color:#ccc; line-height: 200px; font-size: 1.5rem;">待機中</div></div>
+        <div style="margin-top:40px; color:#999; font-size:0.9rem; text-align: left;"><label><input type="checkbox" id="mute-toggle" checked> この端末で音楽・効果音を鳴らす</label></div>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
     <script>
+        // ▼▼▼ Firebaseの設定を貼り付け ▼▼▼
         const firebaseConfig = {
-            apiKey: "AIzaSyDGQBFnST2VjMmizssGall_Hk-mDXuwXis",
-            authDomain: "hayaoshi--momo.firebaseapp.com",
-            projectId: "hayaoshi--momo",
-            storageBucket: "hayaoshi--momo.firebasestorage.app",
-            messagingSenderId: "178861367734",
-            appId: "1:178861367734:web:a3445a7c9d7e1757ede117"
+            apiKey: "ここに貼り付け",
+            authDomain: "...",
+            projectId: "...",
+            storageBucket: "...",
+            messagingSenderId: "...",
+            appId: "..."
         };
-
         try { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); } catch (e) {}
 
-        const db = firebase.database();
-        const ref = db.ref('quiz_room');
+        const db = firebase.database(); const ref = db.ref('quiz_room');
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let musicPlayer = new Audio(); let sabiPlayer = new Audio();
+        let audioData = { intros: [], sabis: [] }; let currentEventName = "";
+        let enableSound = true; document.getElementById('mute-toggle').addEventListener('change', (e) => enableSound = e.target.checked);
 
-        let enableSound = true;
-        document.getElementById('mute-toggle').addEventListener('change', (e) => {
-            enableSound = e.target.checked;
+        ref.on('value', (snapshot) => {
+            const data = snapshot.val() || {}; const eventName = data.current_event || "";
+            if (eventName && eventName !== currentEventName) {
+                currentEventName = eventName; const statusDiv = document.getElementById('audio-status');
+                statusDiv.innerText = `【${eventName}】の音源をダウンロード中...`;
+                ref.child('saved_audio').child(eventName).once('value').then(snap => {
+                    audioData = snap.val() || { intros: [], sabis: [] }; statusDiv.innerText = `【${eventName}】準備完了！`; setTimeout(() => statusDiv.innerText = "", 3000);
+                });
+            }
         });
 
         function playSound(type) {
-            if (!enableSound) return;
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            const now = audioCtx.currentTime;
-
-            if (type === 'ping') {
-                osc.type = 'sine'; osc.frequency.setValueAtTime(880, now); osc.frequency.setValueAtTime(1760, now+0.1);
-                gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now+0.4);
-                osc.start(); osc.stop(now+0.4);
-            } else if (type === 'ok') {
-                osc.type = 'triangle'; osc.frequency.setValueAtTime(1320, now); osc.frequency.setValueAtTime(1320, now+0.2);
-                gain.gain.setValueAtTime(0.3, now); gain.gain.setValueAtTime(0, now+0.15); gain.gain.setValueAtTime(0.3, now+0.2); gain.gain.exponentialRampToValueAtTime(0.01, now+0.6);
-                osc.start(); osc.stop(now+0.6);
-            } else if (type === 'ng') {
-                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now); osc.frequency.linearRampToValueAtTime(100, now+0.4);
-                gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now+0.4);
-                osc.start(); osc.stop(now+0.4);
-            }
+            if (!enableSound) return; if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination); const now = audioCtx.currentTime;
+            if (type === 'ping') { osc.type = 'sine'; osc.frequency.setValueAtTime(880, now); osc.frequency.setValueAtTime(1760, now+0.1); gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now+0.4); osc.start(); osc.stop(now+0.4); } 
+            else if (type === 'ok') { osc.type = 'triangle'; osc.frequency.setValueAtTime(1320, now); osc.frequency.setValueAtTime(1320, now+0.2); gain.gain.setValueAtTime(0.3, now); gain.gain.setValueAtTime(0, now+0.15); gain.gain.setValueAtTime(0.3, now+0.2); gain.gain.exponentialRampToValueAtTime(0.01, now+0.6); osc.start(); osc.stop(now+0.6); } 
+            else if (type === 'ng') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now); osc.frequency.linearRampToValueAtTime(100, now+0.4); gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now+0.4); osc.start(); osc.stop(now+0.4); }
         }
 
-        ref.on('value', (snapshot) => {
-            const data = snapshot.val() || {};
-            const queue = data.queue || [];
-            const idx = data.current_index || 0;
-            const judgment = data.judgment;
-            
-            const listDiv = document.getElementById('ranking-list');
-
-            if (queue.length === 0) {
-                listDiv.innerHTML = '<div style="text-align:center; color:#ccc; line-height: 200px; font-size: 1.5rem;">待機中</div>';
-            } else {
-                let html = '';
-                queue.forEach((name, i) => {
-                    let className = 'rank-item';
-                    let status = '';
-                    if (i === idx) {
-                        className += ' active';
-                        if (judgment === 'correct') {
-                            status = '<span class="status-text" style="color:#f39c12">正解</span>';
-                        } else if (judgment === 'incorrect') {
-                            status = '<span class="status-text" style="color:#4a90e2">不正解</span>';
-                        } else {
-                            status = '<span class="status-text" style="color:#e05275">解答権獲得</span>';
-                        }
-                    }
-                    if (i < idx) {
-                        className += ' ng';
-                        status = '不正解';
-                    }
-                    html += `<div class="${className}"><span class="rank-badge">${i+1}番手</span><span>${name}</span><span>${status}</span></div>`;
-                });
-                listDiv.innerHTML = html;
-            }
-            
-            if (typeof window.lastLen !== 'undefined' && window.lastLen !== null && queue.length > window.lastLen) {
-                playSound('ping');
-            }
-            if (judgment === 'correct') playSound('ok');
-            if (judgment === 'incorrect') playSound('ng');
-
-            window.lastLen = queue.length;
+        ref.child('audio_state').on('value', (snapshot) => {
+            const data = snapshot.val(); if (!data || !enableSound || !audioData.intros) return;
+            const action = data.action; const idx = data.track_index;
+            if (action === 'play_intro') { sabiPlayer.pause(); if (audioData.intros[idx]) { musicPlayer.src = audioData.intros[idx]; musicPlayer.currentTime = 0; musicPlayer.play().catch(e=>console.log(e)); } } 
+            else if (action === 'play_intro_resume') { sabiPlayer.pause(); if (musicPlayer.paused) musicPlayer.play().catch(e=>console.log(e)); } 
+            else if (action === 'pause_intro') { musicPlayer.pause(); } 
+            else if (action === 'play_sabi') { musicPlayer.pause(); if (audioData.sabis[idx]) { if (sabiPlayer.src !== audioData.sabis[idx]) { sabiPlayer.src = audioData.sabis[idx]; sabiPlayer.currentTime = 0; } if (sabiPlayer.paused) sabiPlayer.play().catch(e=>console.log(e)); } } 
+            else if (action === 'pause_sabi') { sabiPlayer.pause(); } 
+            else if (action === 'stop_all') { musicPlayer.pause(); sabiPlayer.pause(); } 
+            else if (action === 'skip_back') { if (!musicPlayer.paused) musicPlayer.currentTime = Math.max(0, musicPlayer.currentTime - 10); else if (!sabiPlayer.paused) sabiPlayer.currentTime = Math.max(0, sabiPlayer.currentTime - 10); } 
+            else if (action === 'skip_forward') { if (!musicPlayer.paused) musicPlayer.currentTime = Math.min(musicPlayer.duration, musicPlayer.currentTime + 10); else if (!sabiPlayer.paused) sabiPlayer.currentTime = Math.min(sabiPlayer.duration, sabiPlayer.currentTime + 10); }
         });
 
-        db.ref(".info/connected").on("value", (snap) => {
-            const lamp = document.getElementById('lamp');
-            if(snap.val()) { lamp.style.background = "#2ecc71"; document.getElementById('conn-status').innerText = "接続完了"; }
-            else { lamp.style.background = "#ccc"; document.getElementById('conn-status').innerText = "未接続"; }
+        ref.on('value', (snapshot) => {
+            const data = snapshot.val() || {}; const queue = data.queue || []; const idx = data.current_index || 0; const judgment = data.judgment;
+            const listDiv = document.getElementById('ranking-list');
+            if (queue.length === 0) { listDiv.innerHTML = '<div style="text-align:center; color:#ccc; line-height: 200px; font-size: 1.5rem;">待機中</div>'; } 
+            else {
+                let html = ''; queue.forEach((name, i) => {
+                    let className = 'rank-item'; let status = '';
+                    if (i === idx) { className += ' active'; if (judgment === 'correct') status = '<span class="status-text" style="color:#f39c12">正解</span>'; else if (judgment === 'incorrect') status = '<span class="status-text" style="color:#4a90e2">不正解</span>'; else status = '<span class="status-text" style="color:#e05275">解答権獲得</span>'; }
+                    if (i < idx) { className += ' ng'; status = '不正解'; }
+                    html += `<div class="${className}"><span class="rank-badge">${i+1}番手</span><span>${name}</span><span>${status}</span></div>`;
+                }); listDiv.innerHTML = html;
+            }
+            if (typeof window.lastLen !== 'undefined' && window.lastLen !== null && queue.length > window.lastLen) { playSound('ping'); if (enableSound) { musicPlayer.pause(); sabiPlayer.pause(); } }
+            if (judgment === 'correct') playSound('ok'); if (judgment === 'incorrect') playSound('ng');
+            window.lastLen = queue.length;
         });
     </script>
 </body>
