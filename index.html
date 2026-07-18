@@ -2,10 +2,10 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>メインモニター - 早押し判定</title>
+    <title>メインモニター - 早押し判定システム</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 20px; background: #fafafa; color: #333; }
+        body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 20px; background: #fafafa; color: #333; margin: 0; }
         .container { max-width: 800px; margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
         h1 { font-size: 2rem; font-weight: 600; color: #555; margin-bottom: 40px; letter-spacing: 0.1em; }
         #ranking-list { text-align: left; margin: 30px 0; min-height: 200px; border-top: 2px dashed #eee; border-bottom: 2px dashed #eee; padding: 20px 0; }
@@ -16,13 +16,26 @@
         .status-text { font-size: 1.4rem; font-weight: bold; }
         .status-lamp { display: inline-block; width: 15px; height: 15px; border-radius: 50%; background: #ccc; margin-right: 10px; vertical-align: middle; }
         .audio-status { margin-top: 30px; font-weight: bold; color: #3498db; }
+        
+        /* ▼ iPadロック解除用オーバーレイ ▼ */
+        #unlock-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(44, 62, 80, 0.95); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; }
+        #btn-unlock { font-size: 1.5rem; font-weight: bold; padding: 20px 40px; background: #e05275; color: white; border: none; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 20px rgba(224,82,117,0.5); transition: transform 0.1s; }
+        #btn-unlock:active { transform: scale(0.95); }
     </style>
 </head>
 <body>
+    <!-- iPadの音源ロック解除画面 -->
+    <div id="unlock-overlay">
+        <h2 style="margin-bottom: 20px;">システムの準備ができました</h2>
+        <p style="margin-bottom: 40px; line-height: 1.6;">iPadのセキュリティ（遠隔再生ブロック）を解除するため<br>下のボタンをタップしてください</p>
+        <button id="btn-unlock">🔊 タップしてシステムを開始</button>
+    </div>
+
     <div class="container">
         <h1>早押し順位</h1>
         <div class="audio-status" id="audio-status"></div>
         <div id="ranking-list"><div style="text-align:center; color:#ccc; line-height: 200px; font-size: 1.5rem;">待機中</div></div>
+
         <div style="margin-top:40px; color:#999; font-size:0.9rem; text-align: left; display: flex; justify-content: space-between; align-items: center;">
             <div><span id="lamp" class="status-lamp"></span>システム接続: <span id="conn-status">接続中</span></div>
             <div><label><input type="checkbox" id="mute-toggle" checked> この端末で音楽・効果音を鳴らす</label></div>
@@ -31,7 +44,9 @@
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
     <script>
+        // 設定コード
         const firebaseConfig = {
             apiKey: "AIzaSyDzIx3CN5EnlznHgXMDNDb5Bulk9lpQpBw",
             authDomain: "mmym-intr-hyosbt.firebaseapp.com",
@@ -46,57 +61,137 @@
 
         const db = firebase.database(); const ref = db.ref('quiz_room');
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        let musicPlayer = new Audio(); let sabiPlayer = new Audio();
-        let audioData = { intros: [], sabis: [] }; let currentEventName = "";
-        let enableSound = true; document.getElementById('mute-toggle').addEventListener('change', (e) => enableSound = e.target.checked);
+        
+        let musicPlayer = new Audio();
+        let sabiPlayer = new Audio();
+        let audioData = { intros: [], sabis: [] };
+        let currentEventName = "";
 
+        let enableSound = true;
+        document.getElementById('mute-toggle').addEventListener('change', (e) => enableSound = e.target.checked);
+
+        // ★ iPadの自動再生ロックを強制解除するハッキング処理 ★
+        document.getElementById('btn-unlock').addEventListener('click', () => {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            // 無音のデータを一瞬だけ再生させてiPadに「音楽再生」を許可させる
+            const silentMp3 = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU5LjI3LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIAD+////7/X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX1//OEAAAAAEMAAAeAAAAAEQAAH//OEAAAAAEMAAAeAAAAAEQAAH//OEAAAAAEMAAAeAAAAAEQAAH";
+            
+            musicPlayer.src = silentMp3;
+            musicPlayer.play().then(() => { musicPlayer.pause(); }).catch(e => {});
+            
+            sabiPlayer.src = silentMp3;
+            sabiPlayer.play().then(() => { sabiPlayer.pause(); }).catch(e => {});
+
+            // オーバーレイを消す
+            document.getElementById('unlock-overlay').style.display = 'none';
+        });
+
+        // データベースから文字化された音楽データをダウンロード
         ref.on('value', (snapshot) => {
             const data = snapshot.val() || {}; const eventName = data.current_event || "";
             if (eventName && eventName !== currentEventName) {
                 currentEventName = eventName; const statusDiv = document.getElementById('audio-status');
                 statusDiv.innerText = `【${eventName}】の音源をダウンロード中...`;
+                
                 ref.child('saved_audio').child(eventName).once('value').then(snap => {
-                    audioData = snap.val() || { intros: [], sabis: [] }; statusDiv.innerText = `【${eventName}】準備完了！`; setTimeout(() => statusDiv.innerText = "", 3000);
+                    audioData = snap.val() || { intros: [], sabis: [] }; 
+                    statusDiv.innerText = `【${eventName}】音源準備完了！`; 
+                    setTimeout(() => statusDiv.innerText = "", 3000);
                 });
             }
         });
 
         function playSound(type) {
-            if (!enableSound) return; if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (!enableSound) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
             const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
             osc.connect(gain); gain.connect(audioCtx.destination); const now = audioCtx.currentTime;
-            if (type === 'ping') { osc.type = 'sine'; osc.frequency.setValueAtTime(880, now); osc.frequency.setValueAtTime(1760, now+0.1); gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now+0.4); osc.start(); osc.stop(now+0.4); } 
-            else if (type === 'ok') { osc.type = 'triangle'; osc.frequency.setValueAtTime(1320, now); osc.frequency.setValueAtTime(1320, now+0.2); gain.gain.setValueAtTime(0.3, now); gain.gain.setValueAtTime(0, now+0.15); gain.gain.setValueAtTime(0.3, now+0.2); gain.gain.exponentialRampToValueAtTime(0.01, now+0.6); osc.start(); osc.stop(now+0.6); } 
-            else if (type === 'ng') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now); osc.frequency.linearRampToValueAtTime(100, now+0.4); gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now+0.4); osc.start(); osc.stop(now+0.4); }
+
+            if (type === 'ping') {
+                osc.type = 'sine'; osc.frequency.setValueAtTime(880, now); osc.frequency.setValueAtTime(1760, now+0.1);
+                gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now+0.4); osc.start(); osc.stop(now+0.4);
+            } else if (type === 'ok') {
+                osc.type = 'triangle'; osc.frequency.setValueAtTime(1320, now); osc.frequency.setValueAtTime(1320, now+0.2);
+                gain.gain.setValueAtTime(0.3, now); gain.gain.setValueAtTime(0, now+0.15); gain.gain.setValueAtTime(0.3, now+0.2); gain.gain.exponentialRampToValueAtTime(0.01, now+0.6); osc.start(); osc.stop(now+0.6);
+            } else if (type === 'ng') {
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now); osc.frequency.linearRampToValueAtTime(100, now+0.4);
+                gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now+0.4); osc.start(); osc.stop(now+0.4);
+            }
         }
 
+        // 遠隔コマンドで音楽を再生
         ref.child('audio_state').on('value', (snapshot) => {
-            const data = snapshot.val(); if (!data || !enableSound || !audioData.intros) return;
+            const data = snapshot.val();
+            if (!data || !enableSound || !audioData.intros) return;
+            
             const action = data.action; const idx = data.track_index;
-            if (action === 'play_intro') { sabiPlayer.pause(); if (audioData.intros[idx]) { musicPlayer.src = audioData.intros[idx]; musicPlayer.currentTime = 0; musicPlayer.play().catch(e=>console.log(e)); } } 
-            else if (action === 'play_intro_resume') { sabiPlayer.pause(); if (musicPlayer.paused) musicPlayer.play().catch(e=>console.log(e)); } 
-            else if (action === 'pause_intro') { musicPlayer.pause(); } 
-            else if (action === 'play_sabi') { musicPlayer.pause(); if (audioData.sabis[idx]) { if (sabiPlayer.src !== audioData.sabis[idx]) { sabiPlayer.src = audioData.sabis[idx]; sabiPlayer.currentTime = 0; } if (sabiPlayer.paused) sabiPlayer.play().catch(e=>console.log(e)); } } 
-            else if (action === 'pause_sabi') { sabiPlayer.pause(); } 
-            else if (action === 'stop_all') { musicPlayer.pause(); sabiPlayer.pause(); } 
-            else if (action === 'skip_back') { if (!musicPlayer.paused) musicPlayer.currentTime = Math.max(0, musicPlayer.currentTime - 10); else if (!sabiPlayer.paused) sabiPlayer.currentTime = Math.max(0, sabiPlayer.currentTime - 10); } 
-            else if (action === 'skip_forward') { if (!musicPlayer.paused) musicPlayer.currentTime = Math.min(musicPlayer.duration, musicPlayer.currentTime + 10); else if (!sabiPlayer.paused) sabiPlayer.currentTime = Math.min(sabiPlayer.duration, sabiPlayer.currentTime + 10); }
+
+            if (action === 'play_intro') {
+                sabiPlayer.pause();
+                if (audioData.intros[idx]) {
+                    musicPlayer.src = audioData.intros[idx];
+                    musicPlayer.currentTime = 0;
+                    musicPlayer.play().catch(e=>console.log(e));
+                }
+            } else if (action === 'play_intro_resume') {
+                sabiPlayer.pause();
+                if (musicPlayer.paused) musicPlayer.play().catch(e=>console.log(e));
+            } else if (action === 'pause_intro') {
+                musicPlayer.pause();
+            } else if (action === 'play_sabi') {
+                musicPlayer.pause();
+                if (audioData.sabis[idx]) {
+                    if (sabiPlayer.src !== audioData.sabis[idx]) {
+                        sabiPlayer.src = audioData.sabis[idx];
+                        sabiPlayer.currentTime = 0;
+                    }
+                    if (sabiPlayer.paused) sabiPlayer.play().catch(e=>console.log(e));
+                }
+            } else if (action === 'pause_sabi') {
+                sabiPlayer.pause();
+            } else if (action === 'stop_all') {
+                musicPlayer.pause(); sabiPlayer.pause();
+            } else if (action === 'skip_back') {
+                if (!musicPlayer.paused) musicPlayer.currentTime = Math.max(0, musicPlayer.currentTime - 10);
+                else if (!sabiPlayer.paused) sabiPlayer.currentTime = Math.max(0, sabiPlayer.currentTime - 10);
+            } else if (action === 'skip_forward') {
+                if (!musicPlayer.paused) musicPlayer.currentTime = Math.min(musicPlayer.duration, musicPlayer.currentTime + 10);
+                else if (!sabiPlayer.paused) sabiPlayer.currentTime = Math.min(sabiPlayer.duration, sabiPlayer.currentTime + 10);
+            }
         });
 
+        // ランキング監視と早押し時のミュート
         ref.on('value', (snapshot) => {
-            const data = snapshot.val() || {}; const queue = data.queue || []; const idx = data.current_index || 0; const judgment = data.judgment;
+            const data = snapshot.val() || {};
+            const queue = data.queue || []; const idx = data.current_index || 0; const judgment = data.judgment;
             const listDiv = document.getElementById('ranking-list');
-            if (queue.length === 0) { listDiv.innerHTML = '<div style="text-align:center; color:#ccc; line-height: 200px; font-size: 1.5rem;">待機中</div>'; } 
-            else {
-                let html = ''; queue.forEach((name, i) => {
+
+            if (queue.length === 0) {
+                listDiv.innerHTML = '<div style="text-align:center; color:#ccc; line-height: 200px; font-size: 1.5rem;">待機中</div>';
+            } else {
+                let html = '';
+                queue.forEach((name, i) => {
                     let className = 'rank-item'; let status = '';
-                    if (i === idx) { className += ' active'; if (judgment === 'correct') status = '<span class="status-text" style="color:#f39c12">正解</span>'; else if (judgment === 'incorrect') status = '<span class="status-text" style="color:#4a90e2">不正解</span>'; else status = '<span class="status-text" style="color:#e05275">解答権獲得</span>'; }
+                    if (i === idx) {
+                        className += ' active';
+                        if (judgment === 'correct') status = '<span class="status-text" style="color:#f39c12">正解</span>';
+                        else if (judgment === 'incorrect') status = '<span class="status-text" style="color:#4a90e2">不正解</span>';
+                        else status = '<span class="status-text" style="color:#e05275">解答権獲得</span>';
+                    }
                     if (i < idx) { className += ' ng'; status = '不正解'; }
                     html += `<div class="${className}"><span class="rank-badge">${i+1}番手</span><span>${name}</span><span>${status}</span></div>`;
-                }); listDiv.innerHTML = html;
+                });
+                listDiv.innerHTML = html;
             }
-            if (typeof window.lastLen !== 'undefined' && window.lastLen !== null && queue.length > window.lastLen) { playSound('ping'); if (enableSound) { musicPlayer.pause(); sabiPlayer.pause(); } }
-            if (judgment === 'correct') playSound('ok'); if (judgment === 'incorrect') playSound('ng');
+            
+            if (typeof window.lastLen !== 'undefined' && window.lastLen !== null && queue.length > window.lastLen) {
+                playSound('ping');
+                if (enableSound) { musicPlayer.pause(); sabiPlayer.pause(); }
+            }
+            if (judgment === 'correct') playSound('ok');
+            if (judgment === 'incorrect') playSound('ng');
+
             window.lastLen = queue.length;
         });
 
