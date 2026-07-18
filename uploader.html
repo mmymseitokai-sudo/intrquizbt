@@ -2,84 +2,72 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>GM管理画面</title>
+    <title>音源アップローダー（管理機能付き）</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: -apple-system, sans-serif; text-align: center; padding: 15px; background: #2c3e50; color: #ecf0f1; touch-action: manipulation; }
-        .container { max-width: 500px; margin: 0 auto; background: #34495e; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-        h1 { font-size: 1.1rem; font-weight: bold; color: #bdc3c7; margin-bottom: 15px; }
-        .selector-section { background: #2c3e50; border: 1px solid #8e44ad; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: left; }
-        .selector-section select { width: 70%; padding: 10px; font-size: 1rem; border-radius: 4px; border: none; background: #ecf0f1; }
-        .selector-section button { width: 28%; font-size: 0.9rem; padding: 10px; background: #8e44ad; color: white; border-radius: 4px; border: none; float: right; font-weight: bold; cursor: pointer; }
-        .audio-section { background: #2c3e50; border: 1px solid #4f5f6f; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: left; }
-        #track-info { font-size: 0.95rem; color: #fff; font-weight: bold; margin-bottom: 10px; min-height: 2.4em; }
-        .audio-manual-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
-        .audio-manual-row button { font-size: 0.85rem; padding: 8px; border-radius: 4px; border: none; font-weight: bold; cursor: pointer; }
-        .control-sub-row { display: flex; justify-content: space-between; }
-        #btn-manual-play { width: 48%; background: #2ecc71; color: white; }
-        #btn-skip-back, #btn-skip-forward { width: 23%; background: #95a5a6; color: white; }
-        #btn-sabi-play { width: 100%; background: #f39c12; color: white; font-size: 1rem; padding: 10px; }
-        #playlist-section { display: none; margin-top: 12px; border-top: 1px dashed #4f5f6f; padding-top: 12px; }
-        #playlist-box { max-height: 150px; overflow-y: auto; border: 1px solid #4f5f6f; border-radius: 6px; background: #2c3e50; text-align: left; }
-        .playlist-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border-bottom: 1px solid #34495e; font-size: 0.85rem; color: #bdc3c7; cursor:pointer;}
-        .playlist-item.active { background: #e05275; color: #fff; font-weight: bold; }
-        .playlist-title { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .playlist-controls button { width: auto; padding: 2px 8px; font-size: 0.75rem; background: #7f8c8d; color: #fff; border-radius: 3px; border: none; font-weight: bold; }
-        #ranking-list { text-align: left; margin: 15px 0; min-height: 60px; border-top: 1px solid #4f5f6f; border-bottom: 1px solid #4f5f6f; padding: 5px 0; }
-        .rank-item { padding: 8px 5px; border-bottom: 1px solid #34495e; font-size: 1rem; color: #7f8c8d; display: flex; justify-content: space-between; }
-        .rank-item.active { background: #e05275; color: #fff; font-weight: bold; border-radius: 4px; }
-        .rank-item.ng { text-decoration: line-through; color: #555; }
-        .rank-badge { font-weight: bold; margin-right: 10px; display: inline-block; width: 50px; }
-        button.action-btn { font-size: 1.1rem; padding: 12px; margin: 6px 0; width: 100%; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; }
-        #judge-area { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #4f5f6f; display: flex; justify-content: space-between; }
-        #btn-ok { background: #2ecc71; color: white; width: 48%; }
-        #btn-ng { background: #e74c3c; color: white; width: 48%; }
-        #start { background: #3498db; color: white; }
-        #lock { background: #f1c40f; color: #333; }
-        #reset { background: #95a5a6; color: white; }
-        .status-lamp { display: inline-block; width: 10px; height: 12px; border-radius: 50%; background: #ccc; margin-right: 8px; vertical-align: middle; }
+        body { font-family: -apple-system, sans-serif; text-align: center; padding: 20px; background: #34495e; color: #ecf0f1; }
+        .container { max-width: 600px; margin: 0 auto; background: #2c3e50; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        h1 { font-size: 1.3rem; font-weight: bold; color: #bdc3c7; margin-bottom: 20px; }
+        
+        /* セクション共通 */
+        .setup-area { background: #34495e; padding: 20px; border-radius: 8px; text-align: left; margin-bottom: 20px; }
+        .area-title { font-size: 1.1rem; font-weight: bold; color: #f1c40f; margin-top: 0; border-bottom: 1px solid #4f5f6f; padding-bottom: 8px; margin-bottom: 15px; }
+        
+        /* 保存済みリスト管理 */
+        .list-item { background: #1a252f; padding: 12px; margin-bottom: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;}
+        .list-name { font-weight: bold; color: #ecf0f1; flex-grow: 1; margin-right: 10px; word-break: break-all; margin-bottom: 5px; }
+        .list-actions { display: flex; gap: 5px; }
+        .list-actions button { width: auto; padding: 6px 12px; font-size: 0.8rem; margin: 0; border-radius: 4px; }
+        
+        /* フォーム */
+        input[type="text"] { font-size: 1.1rem; padding: 12px; width: calc(100% - 24px); margin-bottom: 15px; border: 1px solid #7f8c8d; border-radius: 6px; background: #2c3e50; color: white; outline: none; }
+        button { font-size: 1rem; padding: 12px; margin: 5px 0; width: 100%; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; color: white; }
+        
+        /* ボタンの色 */
+        .btn-append { background: #3498db; }
+        .btn-rename { background: #95a5a6; }
+        .btn-delete { background: #e74c3c; }
+        .btn-cancel { background: #7f8c8d; display: none; }
+        
+        #status { font-weight: bold; margin-top: 15px; color: #f1c40f; display: none; background: #1a252f; padding: 10px; border-radius: 6px; font-size: 0.9rem; line-height: 1.5; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>GMコントロールパネル</h1>
-        <div class="selector-section">
-            <div style="font-size:0.8rem; font-weight:bold; color:#95a5a6; margin-bottom:8px;">クラウドからリストを呼び出す</div>
-            <div>
-                <select id="playlist-selector"><option value="">読込中...</option></select>
-                <button id="btn-load-playlist">セット</button>
+        <h1>音源データ管理・アップローダー</h1>
+
+        <!-- ① 保存済みプレイリストの管理エリア -->
+        <div class="setup-area">
+            <h2 class="area-title">保存済みのリスト管理</h2>
+            <div id="playlist-container">
+                <p style="font-size:0.85rem; color:#95a5a6;">読込中...</p>
             </div>
-            <div style="clear:both;"></div>
         </div>
-        <div class="audio-section">
-            <div id="track-info">上のメニューからセットしてください</div>
-            <div class="audio-manual-row">
-                <button id="btn-sabi-play">サビを再生</button>
-                <div class="control-sub-row">
-                    <button id="btn-skip-back">10s 戻る</button>
-                    <button id="btn-manual-play">イントロ 再生</button>
-                    <button id="btn-skip-forward">10s 進む</button>
-                </div>
-            </div>
-            <div id="playlist-section"><div id="playlist-box"></div></div>
+        
+        <!-- ② 新規作成・追加エリア -->
+        <div class="setup-area">
+            <h2 class="area-title" id="form-title">新規プレイリスト作成</h2>
+            <p style="font-size:0.85rem; color:#bdc3c7;">① リストの名前</p>
+            <input type="text" id="event-name" placeholder="例：予選Aブロック">
+            <input type="hidden" id="edit-mode" value="new">
+
+            <p style="font-size:0.85rem; color:#bdc3c7; margin-top:15px;">② フォルダを選択<br><span style="color:#e74c3c; font-size:0.75rem;">※DB負担軽減のため、1回5〜10曲程度での送信を推奨します。</span></p>
+            <button onclick="document.getElementById('audio-files').click()" style="background:#2ecc71;">1. イントロフォルダを選択</button>
+            <button onclick="document.getElementById('sabi-files').click()" style="background:#e67e22;">2. サビフォルダを選択</button>
+            
+            <button id="btn-upload" style="background:#e05275; margin-top:20px; display:none;">3. クラウドに保存（送信）</button>
+            <button id="btn-cancel" class="btn-cancel" onclick="resetForm()">追加をキャンセル</button>
+            
+            <input type="file" id="audio-files" multiple accept="audio/*,.mp3,.m4a,.wav" style="display:none">
+            <input type="file" id="sabi-files" multiple accept="audio/*,.mp3,.m4a,.wav" style="display:none">
         </div>
-        <div id="ranking-list"><div style="text-align:center; color:#7f8c8d; line-height: 60px;">待機中</div></div>
-        <div id="judge-area">
-            <button id="btn-ok" class="action-btn">正解</button>
-            <button id="btn-ng" class="action-btn">不正解</button>
-        </div>
-        <button id="start" class="action-btn">次の問題（イントロスタート）</button>
-        <button id="lock" class="action-btn">受付終了（ロック）</button>
-        <button id="reset" class="action-btn">全リセット（音楽停止）</button>
-        <div style="margin-top:20px; color:#bdc3c7; font-size:0.75rem;">
-            <span id="lamp" class="status-lamp"></span>接続: <span id="conn-status">接続中</span>
-        </div>
+        
+        <div id="status"></div>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script>
-        // ▼▼▼ Firebaseの設定を貼り付け ▼▼▼
         const firebaseConfig = {
             apiKey: "AIzaSyDzIx3CN5EnlznHgXMDNDb5Bulk9lpQpBw",
             authDomain: "mmym-intr-hyosbt.firebaseapp.com",
@@ -91,102 +79,188 @@
             measurementId: "G-2MNRCP27T9"
         };
         try { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); } catch (e) {}
+
         const db = firebase.database(); const ref = db.ref('quiz_room');
-        let currentPlaylist = []; let currentTrackIndex = 0;
-        
+        let loadedTracks = []; let rawSabiTracks = []; let loadedSabiTracks = [];
+
+        // --- 保存済みリストの表示と管理 ---
         ref.child('saved_playlists').on('value', (snap) => {
-            const savedLists = snap.val() || {}; const selector = document.getElementById('playlist-selector'); selector.innerHTML = '';
-            const keys = Object.keys(savedLists);
-            if (keys.length === 0) { selector.innerHTML = '<option value="">保存されたリストがありません</option>'; } 
-            else { keys.forEach(key => { const opt = document.createElement('option'); opt.value = key; opt.innerText = `${key} (${savedLists[key].length}曲)`; selector.appendChild(opt); }); }
-            window.savedPlaylistsData = savedLists;
-        });
-
-        document.getElementById('btn-load-playlist').addEventListener('click', () => {
-            const selectedKey = document.getElementById('playlist-selector').value;
-            if (!selectedKey || !window.savedPlaylistsData[selectedKey]) return;
-            if (confirm(`「${selectedKey}」のリストをセットしますか？\n（プロジェクター側が自動で音源をダウンロードします）`)) {
-                sendAudioCommand('stop_all');
-                ref.update({ playlist: window.savedPlaylistsData[selectedKey], current_event: selectedKey, current_index: 0, state: 'closed', queue: [], judgment: null });
+            const data = snap.val() || {};
+            const container = document.getElementById('playlist-container');
+            container.innerHTML = '';
+            const keys = Object.keys(data);
+            
+            if(keys.length === 0) {
+                container.innerHTML = '<p style="font-size:0.85rem; color:#95a5a6;">保存されているリストはありません。</p>';
+                return;
             }
-        });
-
-        function sendAudioCommand(action) { ref.child('audio_state').set({ action: action, track_index: currentTrackIndex, time: Date.now() }); }
-
-        function updateTrackDisplay() {
-            const info = document.getElementById('track-info');
-            if (currentPlaylist.length > 0) {
-                const item = currentPlaylist[currentTrackIndex];
-                info.innerHTML = `[${currentTrackIndex + 1}/${currentPlaylist.length}] ${item.introName}`;
-            } else { info.innerText = "上のメニューからリストをセットしてください"; }
-        }
-
-        function renderTrackList() {
-            const section = document.getElementById('playlist-section'); const box = document.getElementById('playlist-box');
-            if (currentPlaylist.length === 0) { section.style.display = 'none'; return; }
-            section.style.display = 'block'; let html = '';
-            currentPlaylist.forEach((item, i) => {
-                const isActive = (i === currentTrackIndex) ? 'active' : ''; const hasSabiText = item.sabiName ? "サビあり" : "サビなし";
-                html += `<div class="playlist-item ${isActive}" onclick="selectTrack(${i})"><div class="playlist-title">${i + 1}. ${item.introName}</div>
-                <div class="playlist-status">${hasSabiText}</div><div class="playlist-controls"><button onclick="moveTrackUp(${i}, event)">↑</button><button onclick="moveTrackDown(${i}, event)">↓</button></div></div>`;
-            });
-            box.innerHTML = html;
-        }
-
-        window.selectTrack = function(index) { currentTrackIndex = index; sendAudioCommand('stop_all'); ref.update({ current_index: index }); }
-        window.moveTrackUp = function(index, event) { event.stopPropagation(); if (index === 0) return; let newPlaylist = [...currentPlaylist]; const temp = newPlaylist[index]; newPlaylist[index] = newPlaylist[index - 1]; newPlaylist[index - 1] = temp; let newIndex = currentTrackIndex; if (currentTrackIndex === index) newIndex--; else if (currentTrackIndex === index - 1) newIndex++; ref.update({ playlist: newPlaylist, current_index: newIndex }); }
-        window.moveTrackDown = function(index, event) { event.stopPropagation(); if (index === currentPlaylist.length - 1) return; let newPlaylist = [...currentPlaylist]; const temp = newPlaylist[index]; newPlaylist[index] = newPlaylist[index + 1]; newPlaylist[index + 1] = temp; let newIndex = currentTrackIndex; if (currentTrackIndex === index) newIndex++; else if (currentTrackIndex === index + 1) newIndex--; ref.update({ playlist: newPlaylist, current_index: newIndex }); }
-
-        const playBtn = document.getElementById('btn-manual-play');
-        playBtn.addEventListener('click', () => { if (currentPlaylist.length === 0) return; if (playBtn.innerText.includes("再生")) sendAudioCommand('play_intro_resume'); else sendAudioCommand('pause_intro'); });
-        const sabiPlayBtn = document.getElementById('btn-sabi-play');
-        sabiPlayBtn.addEventListener('click', () => { if (currentPlaylist.length === 0 || !currentPlaylist[currentTrackIndex].sabiName) return alert("サビがありません"); if (sabiPlayBtn.innerText.includes("再生")) sendAudioCommand('play_sabi'); else sendAudioCommand('pause_sabi'); });
-        document.getElementById('btn-skip-back').addEventListener('click', () => sendAudioCommand('skip_back')); document.getElementById('btn-skip-forward').addEventListener('click', () => sendAudioCommand('skip_forward'));
-
-        ref.child('audio_state').on('value', (snapshot) => {
-            const data = snapshot.val(); if (!data) return; const action = data.action;
-            if (action === 'play_intro' || action === 'play_intro_resume') { playBtn.innerText = "イントロ 一時停止"; playBtn.style.background = "#e74c3c"; sabiPlayBtn.innerText = "サビを再生"; sabiPlayBtn.style.background = "#f39c12"; }
-            else if (action === 'pause_intro') { playBtn.innerText = "イントロ 再生"; playBtn.style.background = "#2ecc71"; }
-            else if (action === 'play_sabi') { sabiPlayBtn.innerText = "サビ 一時停止"; sabiPlayBtn.style.background = "#d35400"; playBtn.innerText = "イントロ 再生"; playBtn.style.background = "#2ecc71"; }
-            else if (action === 'pause_sabi') { sabiPlayBtn.innerText = "サビを再生"; sabiPlayBtn.style.background = "#f39c12"; }
-            else if (action === 'stop_all') { playBtn.innerText = "イントロ 再生"; playBtn.style.background = "#2ecc71"; sabiPlayBtn.innerText = "サビを再生"; sabiPlayBtn.style.background = "#f39c12"; }
-        });
-
-        ref.on('value', (snapshot) => {
-            const data = snapshot.val() || {}; const queue = data.queue || []; const idx = data.current_index || 0;
-            currentPlaylist = data.playlist || []; currentTrackIndex = idx;
-            const listDiv = document.getElementById('ranking-list'); const judgeArea = document.getElementById('judge-area');
-            renderTrackList(); updateTrackDisplay();
-
-            if (queue.length === 0) { listDiv.innerHTML = '<div style="text-align:center; color:#7f8c8d; line-height: 60px;">待機中</div>'; judgeArea.style.display = 'none'; } 
-            else {
-                let html = ''; queue.forEach((name, i) => {
-                    let className = 'rank-item'; let status = '';
-                    if (i === idx) { className += ' active'; status = '回答中'; }
-                    if (i < idx) { className += ' ng'; status = '不正解'; }
-                    html += `<div class="${className}"><span class="rank-badge">${i+1}番手</span><span>${name}</span><span>${status}</span></div>`;
-                });
-                listDiv.innerHTML = html; judgeArea.style.display = (idx < queue.length) ? 'flex' : 'none';
-            }
-        });
-
-        document.getElementById('btn-ok').addEventListener('click', () => { sendAudioCommand('stop_all'); ref.update({ judgment: 'correct' }); });
-        document.getElementById('btn-ng').addEventListener('click', () => {
-            sendAudioCommand('stop_all'); ref.update({ judgment: 'incorrect' });
-            setTimeout(() => { ref.transaction((data) => { if (data) { data.judgment = null; data.current_index = (data.current_index || 0) + 1; } return data; }); if (currentPlaylist.length > 0) sendAudioCommand('play_intro_resume'); }, 1200);
-        });
-        document.getElementById('start').addEventListener('click', () => {
-            ref.once('value').then((snapshot) => {
-                const data = snapshot.val() || {}; let nextIdx = currentTrackIndex;
-                if (data.judgment === 'correct') nextIdx = (currentTrackIndex + 1) % currentPlaylist.length;
-                if (currentPlaylist.length > 0) ref.child('audio_state').set({ action: 'play_intro', track_index: nextIdx, time: Date.now() });
-                ref.update({ state: 'open', queue: [], current_index: nextIdx, judgment: null });
+            
+            keys.forEach(key => {
+                const count = data[key].length;
+                container.innerHTML += `
+                    <div class="list-item">
+                        <div class="list-name">${key} <span style="font-size:0.8rem;color:#95a5a6;">(${count}曲)</span></div>
+                        <div class="list-actions">
+                            <button class="btn-append" onclick="prepareAppend('${key}')">＋曲を追加</button>
+                            <button class="btn-rename" onclick="renamePlaylist('${key}')">名前変更</button>
+                            <button class="btn-delete" onclick="deletePlaylist('${key}')">削除</button>
+                        </div>
+                    </div>
+                `;
             });
         });
-        document.getElementById('lock').addEventListener('click', () => ref.update({ state: 'closed' }));
-        document.getElementById('reset').addEventListener('click', () => { sendAudioCommand('stop_all'); ref.update({ state: 'closed', queue: [], current_index: 0, judgment: null }); });
 
-        db.ref(".info/connected").on("value", (snap) => { const lamp = document.getElementById('lamp'); if(snap.val()) { lamp.style.background = "#2ecc71"; document.getElementById('conn-status').innerText = "接続完了"; } else { lamp.style.background = "#ccc"; document.getElementById('conn-status').innerText = "未接続"; } });
+        // リスト削除
+        window.deletePlaylist = async function(name) {
+            if (confirm(`本当に「${name}」を削除しますか？\n（復元できません）`)) {
+                await ref.child('saved_playlists').child(name).remove();
+                await ref.child('saved_audio').child(name).remove();
+                alert(`「${name}」を削除しました。`);
+                if(document.getElementById('event-name').value === name) resetForm();
+            }
+        }
+
+        // リスト名前変更
+        window.renamePlaylist = async function(oldName) {
+            const newName = prompt(`「${oldName}」の新しい名前を入力してください:`, oldName);
+            if (!newName || newName === oldName) return;
+            const safeName = newName.trim().replace(/[.#$[\]]/g, "_");
+            
+            try {
+                // 古いデータを取得
+                const pSnap = await ref.child('saved_playlists').child(oldName).once('value');
+                const aSnap = await ref.child('saved_audio').child(oldName).once('value');
+                
+                // 新しい名前にデータをコピー
+                await ref.child('saved_playlists').child(safeName).set(pSnap.val());
+                await ref.child('saved_audio').child(safeName).set(aSnap.val());
+                
+                // 古いデータを削除
+                await ref.child('saved_playlists').child(oldName).remove();
+                await ref.child('saved_audio').child(oldName).remove();
+                
+                alert("名称を変更しました！");
+            } catch(e) {
+                alert("エラーが発生しました: " + e.message);
+            }
+        }
+
+        // 追加モードの準備
+        window.prepareAppend = function(name) {
+            document.getElementById('form-title').innerText = `「${name}」に曲を追加`;
+            document.getElementById('form-title').style.color = "#3498db";
+            document.getElementById('event-name').value = name;
+            document.getElementById('event-name').readOnly = true; // 追加時は名前変更不可
+            document.getElementById('edit-mode').value = 'append';
+            document.getElementById('btn-cancel').style.display = 'block';
+            window.scrollTo(0, document.body.scrollHeight);
+            alert(`「${name}」の末尾に曲を追加するモードになりました。\n下から音源を選択して保存してください。`);
+        }
+
+        // フォームのリセット
+        window.resetForm = function() {
+            document.getElementById('form-title').innerText = `新規プレイリスト作成`;
+            document.getElementById('form-title').style.color = "#f1c40f";
+            document.getElementById('event-name').value = '';
+            document.getElementById('event-name').readOnly = false;
+            document.getElementById('edit-mode').value = 'new';
+            document.getElementById('btn-cancel').style.display = 'none';
+            loadedTracks = []; rawSabiTracks = []; loadedSabiTracks = [];
+            document.getElementById('audio-files').value = '';
+            document.getElementById('sabi-files').value = '';
+            document.getElementById('btn-upload').style.display = 'none';
+            document.getElementById('status').style.display = 'none';
+        }
+
+        // --- ファイル選択とアップロード ---
+        document.getElementById('audio-files').addEventListener('change', (e) => {
+            loadedTracks = Array.from(e.target.files); loadedTracks.sort((a, b) => a.name.localeCompare(b.name, 'ja')); checkReady();
+        });
+        document.getElementById('sabi-files').addEventListener('change', (e) => {
+            rawSabiTracks = Array.from(e.target.files); checkReady();
+        });
+
+        function checkReady() {
+            if (loadedTracks.length > 0) {
+                document.getElementById('btn-upload').style.display = 'block'; document.getElementById('status').style.display = 'block';
+                document.getElementById('status').innerText = `イントロ: ${loadedTracks.length}曲 / サビ: ${rawSabiTracks.length}曲 選択済`;
+            }
+        }
+
+        function cleanName(name) { return name.toLowerCase().replace(/\.[^/.]+$/, "").replace(/intro|sabi|イントロ|サビ|clip|answer|music|曲/g, "").replace(/[^a-zA-Z0-9０-９ぁ-んァ-ヶ亜-熙]/g, ""); }
+        function getSimilarity(str1, str2) {
+            const s1 = cleanName(str1); const s2 = cleanName(str2);
+            if (s1 === s2) return 1.0; if (s1.includes(s2) || s2.includes(s1)) return 0.9;
+            const getBigrams = (str) => { const bigrams = new Set(); for (let i = 0; i < str.length - 1; i++) { bigrams.add(str.substring(i, i + 2)); } return bigrams; };
+            const b1 = getBigrams(s1); const b2 = getBigrams(s2);
+            if (b1.size === 0 || b2.size === 0) return 0;
+            let intersection = 0; for (let ngram of b1) { if (b2.has(ngram)) intersection++; } return (2.0 * intersection) / (b1.size + b2.size);
+        }
+
+        function pairSabiTracks() {
+            if (loadedTracks.length === 0 || rawSabiTracks.length === 0) { loadedSabiTracks = new Array(loadedTracks.length).fill(null); return; }
+            loadedSabiTracks = loadedTracks.map(introFile => {
+                let bestMatch = null; let highestScore = -1;
+                rawSabiTracks.forEach(sabiFile => { const score = getSimilarity(introFile.name, sabiFile.name); if (score > highestScore) { highestScore = score; bestMatch = sabiFile; } });
+                return (highestScore > 0.15) ? bestMatch : null;
+            });
+        }
+
+        const fileToBase64 = (file) => new Promise((resolve, reject) => {
+            const reader = new FileReader(); reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result); reader.onerror = e => reject(e);
+        });
+
+        document.getElementById('btn-upload').addEventListener('click', async () => {
+            const eventName = document.getElementById('event-name').value.trim().replace(/[.#$[\]]/g, "_");
+            if (!eventName) return alert("プレイリストの名前を入力してください！");
+            const mode = document.getElementById('edit-mode').value;
+
+            const statusDiv = document.getElementById('status'); statusDiv.innerText = "変換中...画面を閉じないでください";
+            pairSabiTracks();
+
+            try {
+                let startIndex = 0;
+                let existingPlaylist = [];
+                
+                // 「追加モード」の場合は、既存のリストの曲数を調べて、その続きから追加する
+                if (mode === 'append') {
+                    const snap = await ref.child('saved_playlists').child(eventName).once('value');
+                    existingPlaylist = snap.val() || [];
+                    startIndex = existingPlaylist.length;
+                }
+
+                for (let i = 0; i < loadedTracks.length; i++) {
+                    const targetIdx = startIndex + i; // 保存する位置（新規なら0から、追加なら続きから）
+                    const introFile = loadedTracks[i]; const sabiFile = loadedSabiTracks[i];
+                    
+                    statusDiv.innerText = `[${i + 1}/${loadedTracks.length}] ${introFile.name} 変換中...`;
+                    const introBase64 = await fileToBase64(introFile);
+                    await ref.child('saved_audio').child(eventName).child('intros').child(targetIdx).set(introBase64);
+                    
+                    let sabiBase64 = "";
+                    if (sabiFile) { 
+                        statusDiv.innerText = `[${i + 1}/${loadedTracks.length}] ${sabiFile.name} 変換中...`; 
+                        sabiBase64 = await fileToBase64(sabiFile); 
+                    }
+                    await ref.child('saved_audio').child(eventName).child('sabis').child(targetIdx).set(sabiBase64);
+                    
+                    existingPlaylist.push({ introName: introFile.name, sabiName: sabiFile ? sabiFile.name : "" });
+                }
+
+                statusDiv.innerText = "データベースにプレイリスト情報を送信中...";
+                await ref.child('saved_playlists').child(eventName).set(existingPlaylist);
+                
+                if (mode === 'append') {
+                    statusDiv.innerText = `完了！「${eventName}」に ${loadedTracks.length}曲 追加されました。`;
+                } else {
+                    statusDiv.innerText = `完了！新規リスト「${eventName}」が保存されました。`;
+                }
+                
+                setTimeout(() => { resetForm(); }, 3000);
+
+            } catch (e) { alert("送信エラー: ファイルが大きすぎます。\n" + e.message); statusDiv.innerText = "エラー発生"; }
+        });
     </script>
 </body>
 </html>
