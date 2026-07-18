@@ -2,156 +2,69 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>早押しボタン - プレイヤー画面</title>
+    <title>早押しボタン</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 20px; background: #fafafa; color: #333; touch-action: manipulation; }
+        body { font-family: -apple-system, sans-serif; text-align: center; padding: 20px; background: #fafafa; color: #333; touch-action: manipulation; }
         .container { max-width: 400px; margin: 0 auto; }
-        h2 { font-size: 1.1rem; font-weight: 600; color: #777; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 0.05em; }
-        input { font-size: 1.1rem; padding: 12px; width: 85%; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 8px; outline: none; transition: border 0.2s; }
-        input:focus { border-color: #e05275; }
-        button { cursor: pointer; font-family: inherit; font-weight: 600; }
-        
-        #login-screen { margin-top: 50px; }
-        #login-btn { font-size: 1.1rem; padding: 12px 35px; background: #333; color: white; border: none; border-radius: 8px; }
+        h2 { font-size: 1.1rem; font-weight: 600; color: #777; margin-bottom: 25px; }
+        input { font-size: 1.1rem; padding: 12px; width: 85%; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
+        #login-btn { font-size: 1.1rem; padding: 12px 35px; background: #333; color: white; border: none; border-radius: 8px; cursor: pointer; }
         #game-screen { display: none; }
-        #display-name { font-size: 1.2rem; color: #666; margin-bottom: 30px; }
-        
-        #btn {
-            width: 80vw; height: 80vw; max-width: 280px; max-height: 280px;
-            border-radius: 50%; border: none;
-            font-size: 1.8rem; color: white;
-            background: #e5e5e5;
-            box-shadow: 0 8px #cccccc;
-            transition: all 0.1s;
-        }
-        #btn.active {
-            background: #e05275 !important;
-            box-shadow: 0 8px #b83251 !important;
-        }
+        #btn { width: 80vw; height: 80vw; max-width: 280px; max-height: 280px; border-radius: 50%; border: none; font-size: 1.8rem; color: white; background: #e5e5e5; box-shadow: 0 8px #cccccc; transition: all 0.1s; }
+        #btn.active { background: #e05275 !important; box-shadow: 0 8px #b83251 !important; cursor: pointer; }
         #btn:active { transform: translateY(4px); box-shadow: 0 4px #999; }
-        
         #status { margin-top: 30px; font-weight: 600; font-size: 1.5rem; min-height: 1.5rem; color: #555; }
         #rank-info { margin-top: 15px; font-size: 1rem; color: #999; }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- 1. チーム名入力 -->
         <div id="login-screen">
             <h2>チーム名設定</h2>
             <input type="text" id="team-name" placeholder="チーム名を入力してください">
-            <br>
-            <button id="login-btn" onclick="joinGame()">決定</button>
+            <br><button id="login-btn" onclick="joinGame()">決定</button>
         </div>
-
-        <!-- 2. 早押し画面 -->
         <div id="game-screen">
-            <div id="display-name"></div>
+            <div id="display-name" style="margin-bottom: 30px; font-size:1.2rem; color:#666;"></div>
             <button id="btn" disabled>準備中</button>
             <div id="status"></div>
             <div id="rank-info"></div>
         </div>
     </div>
-
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
     <script>
+        // ▼▼▼ Firebaseの設定を貼り付け ▼▼▼
         const firebaseConfig = {
-            apiKey: "AIzaSyDGQBFnST2VjMmizssGall_Hk-mDXuwXis",
-            authDomain: "hayaoshi--momo.firebaseapp.com",
-            projectId: "hayaoshi--momo",
-            storageBucket: "hayaoshi--momo.firebasestorage.app",
-            messagingSenderId: "178861367734",
-            appId: "1:178861367734:web:a3445a7c9d7e1757ede117"
+            apiKey: "ここに貼り付け",
+            authDomain: "...",
+            projectId: "...",
+            storageBucket: "...",
+            messagingSenderId: "...",
+            appId: "..."
         };
-
         try { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); } catch (e) {}
-
-        const db = firebase.database();
-        const ref = db.ref('quiz_room');
-        let myName = "";
-
-        function joinGame() {
-            const input = document.getElementById('team-name');
-            if (!input.value) return;
-            myName = input.value;
-            document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('game-screen').style.display = 'block';
-            document.getElementById('display-name').innerText = "チーム名: " + myName;
-        }
-
-        const btn = document.getElementById('btn');
-        const status = document.getElementById('status');
-        const rankInfo = document.getElementById('rank-info');
-
+        const db = firebase.database(); const ref = db.ref('quiz_room'); let myName = "";
+        function joinGame() { const input = document.getElementById('team-name'); if (!input.value) return; myName = input.value; document.getElementById('login-screen').style.display = 'none'; document.getElementById('game-screen').style.display = 'block'; document.getElementById('display-name').innerText = "チーム名: " + myName; }
+        const btn = document.getElementById('btn'); const status = document.getElementById('status'); const rankInfo = document.getElementById('rank-info');
         ref.on('value', (snapshot) => {
-            const data = snapshot.val() || {};
-            const state = data.state || 'closed';
-            const queue = data.queue || [];
-            const idx = data.current_index || 0;
-            const judgment = data.judgment;
-
-            const myRankIndex = queue.indexOf(myName);
-            const amIInQueue = myRankIndex !== -1;
-
-            if (state === 'open' && !amIInQueue) {
-                btn.disabled = false;
-                btn.className = 'active';
-                btn.style.background = "#e05275";
-                btn.innerText = "早押し";
-                status.innerText = "";
-                rankInfo.innerText = "";
-            } 
-            else if (state === 'closed' && !amIInQueue) {
-                btn.disabled = true;
-                btn.className = '';
-                btn.style.background = "#e5e5e5";
-                btn.innerText = "受付終了";
-                status.innerText = queue.length > 0 ? "他のチームが回答中です" : "解答権の受付を終了しました";
-                rankInfo.innerText = "";
-            }
-            else {
-                btn.disabled = true;
-                btn.className = '';
-                
+            const data = snapshot.val() || {}; const state = data.state || 'closed'; const queue = data.queue || []; const idx = data.current_index || 0; const judgment = data.judgment;
+            const myRankIndex = queue.indexOf(myName); const amIInQueue = myRankIndex !== -1;
+            if (state === 'open' && !amIInQueue) { btn.disabled = false; btn.className = 'active'; btn.style.background = "#e05275"; btn.innerText = "早押し"; status.innerText = ""; rankInfo.innerText = ""; } 
+            else if (state === 'closed' && !amIInQueue) { btn.disabled = true; btn.className = ''; btn.style.background = "#e5e5e5"; btn.innerText = "受付終了"; status.innerText = queue.length > 0 ? "他のチームが回答中です" : "受付を終了しました"; rankInfo.innerText = ""; } 
+            else { btn.disabled = true; btn.className = '';
                 if (amIInQueue) {
                     if (myRankIndex === idx) {
-                        if (judgment === 'correct') {
-                            btn.style.background = "#f39c12"; btn.innerText = "正解";
-                            status.style.color = "#f39c12"; status.innerText = "正解";
-                            rankInfo.innerText = "";
-                        } else if (judgment === 'incorrect') {
-                            btn.style.background = "#4a90e2"; btn.innerText = "不正解";
-                            status.style.color = "#4a90e2"; status.innerText = "不正解";
-                            rankInfo.innerText = "";
-                        } else {
-                            btn.style.background = "#e05275"; btn.innerText = "解答権獲得";
-                            status.style.color = "#e05275"; status.innerText = "あなたの解答順です";
-                            rankInfo.innerText = "お答えください";
-                        }
-                    } else if (myRankIndex > idx) {
-                        btn.style.background = "#e5e5e5"; btn.innerText = (myRankIndex + 1) + "番手";
-                        status.style.color = "#333"; status.innerText = "待機中";
-                        rankInfo.innerText = `現在 ${myRankIndex + 1}番目に控えています`;
-                    } else {
-                        btn.style.background = "#888"; btn.innerText = "回答終了";
-                        status.style.color = "#888"; status.innerText = "判定終了";
-                        rankInfo.innerText = "";
-                    }
+                        if (judgment === 'correct') { btn.style.background = "#f39c12"; btn.innerText = "正解"; status.style.color = "#f39c12"; status.innerText = "正解"; rankInfo.innerText = ""; } 
+                        else if (judgment === 'incorrect') { btn.style.background = "#4a90e2"; btn.innerText = "不正解"; status.style.color = "#4a90e2"; status.innerText = "不正解"; rankInfo.innerText = ""; } 
+                        else { btn.style.background = "#e05275"; btn.innerText = "解答権獲得"; status.style.color = "#e05275"; status.innerText = "あなたの解答順です"; rankInfo.innerText = "お答えください"; }
+                    } else if (myRankIndex > idx) { btn.style.background = "#e5e5e5"; btn.innerText = (myRankIndex + 1) + "番手"; status.style.color = "#333"; status.innerText = "待機中"; rankInfo.innerText = `現在 ${myRankIndex + 1}番目に控えています`; } 
+                    else { btn.style.background = "#888"; btn.innerText = "回答終了"; status.style.color = "#888"; status.innerText = "判定終了"; rankInfo.innerText = ""; }
                 }
             }
         });
-
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            ref.child('queue').transaction((currentQueue) => {
-                if (currentQueue === null) return [myName];
-                if (currentQueue.includes(myName)) return;
-                return [...currentQueue, myName];
-            });
-        });
+        btn.addEventListener('click', (e) => { e.preventDefault(); ref.child('queue').transaction((currentQueue) => { if (currentQueue === null) return [myName]; if (currentQueue.includes(myName)) return; return [...currentQueue, myName]; }); });
     </script>
 </body>
 </html>
