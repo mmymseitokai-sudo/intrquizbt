@@ -17,14 +17,12 @@
         .status-lamp { display: inline-block; width: 15px; height: 15px; border-radius: 50%; background: #ccc; margin-right: 10px; vertical-align: middle; }
         .audio-status { margin-top: 30px; font-weight: bold; color: #3498db; }
         
-        /* ▼ iPadロック解除用オーバーレイ ▼ */
         #unlock-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(44, 62, 80, 0.95); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; }
         #btn-unlock { font-size: 1.5rem; font-weight: bold; padding: 20px 40px; background: #e05275; color: white; border: none; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 20px rgba(224,82,117,0.5); transition: transform 0.1s; }
         #btn-unlock:active { transform: scale(0.95); }
     </style>
 </head>
 <body>
-    <!-- iPadの音源ロック解除画面 -->
     <div id="unlock-overlay">
         <h2 style="margin-bottom: 20px;">システムの準備ができました</h2>
         <p style="margin-bottom: 40px; line-height: 1.6;">iPadのセキュリティ（遠隔再生ブロック）を解除するため<br>下のボタンをタップしてください</p>
@@ -46,7 +44,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
     <script>
-        // 設定コード
+        // ▼▼▼ Firebaseの設定を貼り付け ▼▼▼
         const firebaseConfig = {
             apiKey: "AIzaSyDzIx3CN5EnlznHgXMDNDb5Bulk9lpQpBw",
             authDomain: "mmym-intr-hyosbt.firebaseapp.com",
@@ -70,24 +68,14 @@
         let enableSound = true;
         document.getElementById('mute-toggle').addEventListener('change', (e) => enableSound = e.target.checked);
 
-        // ★ iPadの自動再生ロックを強制解除するハッキング処理 ★
         document.getElementById('btn-unlock').addEventListener('click', () => {
             if (audioCtx.state === 'suspended') audioCtx.resume();
-            
-            // 無音のデータを一瞬だけ再生させてiPadに「音楽再生」を許可させる
             const silentMp3 = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU5LjI3LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIAD+////7/X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX1//OEAAAAAEMAAAeAAAAAEQAAH//OEAAAAAEMAAAeAAAAAEQAAH//OEAAAAAEMAAAeAAAAAEQAAH";
-            
-            musicPlayer.src = silentMp3;
-            musicPlayer.play().then(() => { musicPlayer.pause(); }).catch(e => {});
-            
-            sabiPlayer.src = silentMp3;
-            sabiPlayer.play().then(() => { sabiPlayer.pause(); }).catch(e => {});
-
-            // オーバーレイを消す
+            musicPlayer.src = silentMp3; musicPlayer.play().then(() => { musicPlayer.pause(); }).catch(e => {});
+            sabiPlayer.src = silentMp3; sabiPlayer.play().then(() => { sabiPlayer.pause(); }).catch(e => {});
             document.getElementById('unlock-overlay').style.display = 'none';
         });
 
-        // データベースから文字化された音楽データをダウンロード
         ref.on('value', (snapshot) => {
             const data = snapshot.val() || {}; const eventName = data.current_event || "";
             if (eventName && eventName !== currentEventName) {
@@ -109,6 +97,7 @@
             osc.connect(gain); gain.connect(audioCtx.destination); const now = audioCtx.currentTime;
 
             if (type === 'ping') {
+                // 早押し音（ピンポン！）
                 osc.type = 'sine'; osc.frequency.setValueAtTime(880, now); osc.frequency.setValueAtTime(1760, now+0.1);
                 gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now+0.4); osc.start(); osc.stop(now+0.4);
             } else if (type === 'ok') {
@@ -120,7 +109,6 @@
             }
         }
 
-        // 遠隔コマンドで音楽を再生
         ref.child('audio_state').on('value', (snapshot) => {
             const data = snapshot.val();
             if (!data || !enableSound || !audioData.intros) return;
@@ -129,11 +117,7 @@
 
             if (action === 'play_intro') {
                 sabiPlayer.pause();
-                if (audioData.intros[idx]) {
-                    musicPlayer.src = audioData.intros[idx];
-                    musicPlayer.currentTime = 0;
-                    musicPlayer.play().catch(e=>console.log(e));
-                }
+                if (audioData.intros[idx]) { musicPlayer.src = audioData.intros[idx]; musicPlayer.currentTime = 0; musicPlayer.play().catch(e=>console.log(e)); }
             } else if (action === 'play_intro_resume') {
                 sabiPlayer.pause();
                 if (musicPlayer.paused) musicPlayer.play().catch(e=>console.log(e));
@@ -142,10 +126,7 @@
             } else if (action === 'play_sabi') {
                 musicPlayer.pause();
                 if (audioData.sabis[idx]) {
-                    if (sabiPlayer.src !== audioData.sabis[idx]) {
-                        sabiPlayer.src = audioData.sabis[idx];
-                        sabiPlayer.currentTime = 0;
-                    }
+                    if (sabiPlayer.src !== audioData.sabis[idx]) { sabiPlayer.src = audioData.sabis[idx]; sabiPlayer.currentTime = 0; }
                     if (sabiPlayer.paused) sabiPlayer.play().catch(e=>console.log(e));
                 }
             } else if (action === 'pause_sabi') {
@@ -161,7 +142,6 @@
             }
         });
 
-        // ランキング監視と早押し時のミュート
         ref.on('value', (snapshot) => {
             const data = snapshot.val() || {};
             const queue = data.queue || []; const idx = data.current_index || 0; const judgment = data.judgment;
@@ -186,7 +166,12 @@
             }
             
             if (typeof window.lastLen !== 'undefined' && window.lastLen !== null && queue.length > window.lastLen) {
-                playSound('ping');
+                // ★ 1着の人が押した瞬間（長さが0から1になった時）だけピンポンと鳴らす
+                if (window.lastLen === 0) {
+                    playSound('ping');
+                }
+                
+                // 音楽は誰かが押すたびにストップ
                 if (enableSound) { musicPlayer.pause(); sabiPlayer.pause(); }
             }
             if (judgment === 'correct') playSound('ok');
