@@ -2,97 +2,40 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>管理者画面 - 早押し＆音源連動システム</title>
+    <title>メインモニター - 早押し判定システム</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 15px; background: #f8f9fa; color: #333; touch-action: manipulation; }
-        .container { max-width: 500px; margin: 0 auto; background: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        h1 { font-size: 1.2rem; font-weight: 600; color: #555; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 0.05em; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 40px 20px; background: #fafafa; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        h1 { font-size: 2rem; font-weight: 600; color: #555; margin-bottom: 40px; letter-spacing: 0.1em; }
         
-        /* 音楽プレイヤーエリア */
-        .audio-section { background: #fafafa; border: 1px solid #eee; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: left; }
-        .audio-title { font-size: 0.9rem; font-weight: bold; color: #777; margin-bottom: 10px; }
-        #track-info { font-size: 1rem; color: #333; font-weight: 600; margin-bottom: 10px; min-height: 1.2em; word-break: break-all; }
-        .audio-btn-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
-        .audio-btn-row button { width: 30%; font-size: 0.9rem; padding: 8px; margin: 0; background: #f1f1f1; color: #333; box-shadow: none; }
-        
-        /* プレイリスト表示エリア */
-        #playlist-section { display: none; margin-top: 15px; border-top: 1px dashed #ddd; padding-top: 15px; }
-        #playlist-box { max-height: 180px; overflow-y: auto; border: 1px solid #eee; border-radius: 6px; background: #fff; text-align: left; }
-        .playlist-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-bottom: 1px solid #f9f9f9; font-size: 0.9rem; cursor: pointer; }
-        .playlist-item:last-child { border-bottom: none; }
-        .playlist-item.active { background: #fff0f2; color: #e05275; font-weight: bold; }
-        .playlist-title { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; }
-        .playlist-controls button { width: auto; display: inline-block; padding: 3px 10px; margin: 0 2px; font-size: 0.8rem; background: #f1f1f1; color: #333; border-radius: 4px; border: none; box-shadow: none; font-weight: bold; }
-        .playlist-controls button:active { background: #ddd; }
-
-        /* 順位リスト */
-        #ranking-list { text-align: left; margin: 15px 0; min-height: 80px; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 10px 0; }
-        .rank-item { padding: 12px 10px; border-bottom: 1px solid #f1f1f1; font-size: 1.1rem; color: #888; display: flex; justify-content: space-between; }
+        #ranking-list { text-align: left; margin: 30px 0; min-height: 200px; border-top: 2px dashed #eee; border-bottom: 2px dashed #eee; padding: 20px 0; }
+        .rank-item { padding: 20px 15px; border-bottom: 1px solid #f9f9f9; font-size: 1.8rem; color: #999; display: flex; justify-content: space-between; align-items: center; transition: all 0.3s; }
         .rank-item:last-child { border-bottom: none; }
-        .rank-item.active { background: #fff0f2; color: #e05275; font-weight: bold; border-radius: 6px; }
+        
+        /* 回答中のハイライト表示 */
+        .rank-item.active { background: #fff0f2; color: #e05275; font-weight: bold; border-radius: 10px; transform: scale(1.02); box-shadow: 0 4px 15px rgba(224,82,117,0.1); }
         .rank-item.ng { text-decoration: line-through; color: #ccc; }
-        .rank-badge { font-weight: bold; margin-right: 15px; display: inline-block; width: 60px; }
+        .rank-badge { font-weight: bold; margin-right: 25px; display: inline-block; width: 100px; }
         
-        /* 操作ボタン */
-        button { font-size: 1.1rem; padding: 14px; margin: 8px 0; width: 100%; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; transition: background 0.2s; }
-        #judge-area { display: none; margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ddd; display: flex; justify-content: space-between; }
-        
-        #btn-ok { background: #e05275; color: white; width: 48%; }
-        #btn-ok:hover { background: #c93b5d; }
-        #btn-ng { background: #4a90e2; color: white; width: 48%; }
-        #btn-ng:hover { background: #357abd; }
-        
-        #start { background: #2ecc71; color: white; }
-        #start:hover { background: #27ae60; }
-        #lock { background: #f39c12; color: white; }
-        #lock:hover { background: #d35400; }
-        #reset { background: #95a5a6; color: white; }
-        #reset:hover { background: #7f8c8d; }
-        
-        button:active { transform: translateY(1px); }
-        .status-lamp { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #ccc; margin-right: 8px; vertical-align: middle; }
+        .status-text { font-size: 1.4rem; font-weight: bold; }
+        .status-lamp { display: inline-block; width: 15px; height: 15px; border-radius: 50%; background: #ccc; margin-right: 10px; vertical-align: middle; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>早押し・音源連動判定</h1>
-
-        <!-- 音源読み込みセクション -->
-        <div class="audio-section">
-            <div class="audio-title">イントロ用音源</div>
-            <div id="track-info">音源が読み込まれていません</div>
-            <div class="audio-btn-row">
-                <button onclick="document.getElementById('audio-files').click()">音源を選択</button>
-                <button id="btn-audio-prev" onclick="changeTrack(-1)">前の曲</button>
-                <button id="btn-audio-next" onclick="changeTrack(1)">次の曲</button>
-            </div>
-            <!-- 複数ファイルを一括選択できるインプット -->
-            <input type="file" id="audio-files" multiple accept="audio/*" style="display:none">
-
-            <!-- プレイリスト管理表示エリア -->
-            <div id="playlist-section">
-                <div class="audio-title">プレイリスト（順序変更・選択）</div>
-                <div id="playlist-box"></div>
-            </div>
-        </div>
-
+        <h1>早押し順位</h1>
         <div id="ranking-list">
-            <div style="text-align:center; color:#ccc; line-height: 80px;">待機中</div>
+            <div style="text-align:center; color:#ccc; line-height: 200px; font-size: 1.5rem;">待機中</div>
         </div>
 
-        <!-- 判定エリア -->
-        <div id="judge-area">
-            <button id="btn-ok">正解</button>
-            <button id="btn-ng">不正解</button>
-        </div>
-        
-        <button id="start">次の問題（音楽スタート）</button>
-        <button id="lock">受付終了（ロック）</button>
-        <button id="reset">全リセット（音楽停止）</button>
-
-        <div style="margin-top:25px; color:#999; font-size:0.8rem;">
-            <span id="lamp" class="status-lamp"></span>システム接続: <span id="conn-status">接続中</span>
+        <div style="margin-top:40px; color:#999; font-size:0.9rem; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <span id="lamp" class="status-lamp"></span>システム接続: <span id="conn-status">接続中</span>
+            </div>
+            <div>
+                <label style="cursor:pointer;"><input type="checkbox" id="mute-toggle" checked> この端末で早押し/正誤判定音を鳴らす</label>
+            </div>
         </div>
     </div>
 
@@ -115,109 +58,13 @@
         const ref = db.ref('quiz_room');
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-        // イントロ再生用のAudioオブジェクト
-        let musicPlayer = new Audio();
-        let loadedTracks = [];
-        let currentTrackIndex = 0;
-
-        // 音源が選択されたとき
-        document.getElementById('audio-files').addEventListener('change', (e) => {
-            loadedTracks = Array.from(e.target.files);
-            // ファイル名順に初期並び替え
-            loadedTracks.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
-            currentTrackIndex = 0;
-            updateTrackDisplay();
-            renderTrackList();
+        let enableSound = true;
+        document.getElementById('mute-toggle').addEventListener('change', (e) => {
+            enableSound = e.target.checked;
         });
 
-        // 曲情報を更新
-        function updateTrackDisplay() {
-            const info = document.getElementById('track-info');
-            if (loadedTracks.length > 0) {
-                const file = loadedTracks[currentTrackIndex];
-                info.innerText = `[${currentTrackIndex + 1}/${loadedTracks.length}] ${file.name}`;
-            } else {
-                info.innerText = "音源が読み込まれていません";
-            }
-        }
-
-        // プレイリストの再描画
-        function renderTrackList() {
-            const section = document.getElementById('playlist-section');
-            const box = document.getElementById('playlist-box');
-            if (loadedTracks.length === 0) {
-                section.style.display = 'none';
-                return;
-            }
-            section.style.display = 'block';
-            let html = '';
-            loadedTracks.forEach((file, i) => {
-                const isActive = (i === currentTrackIndex) ? 'active' : '';
-                html += `
-                    <div class="playlist-item ${isActive}" onclick="selectTrack(${i})">
-                        <div class="playlist-title">${i + 1}. ${file.name}</div>
-                        <div class="playlist-controls">
-                            <button onclick="moveTrackUp(${i}, event)">↑</button>
-                            <button onclick="moveTrackDown(${i}, event)">↓</button>
-                        </div>
-                    </div>
-                `;
-            });
-            box.innerHTML = html;
-        }
-
-        // 直接曲を選択する
-        window.selectTrack = function(index) {
-            musicPlayer.pause();
-            currentTrackIndex = index;
-            updateTrackDisplay();
-            renderTrackList();
-        }
-
-        // 曲順を上げる（上へ）
-        window.moveTrackUp = function(index, event) {
-            event.stopPropagation(); // 親要素のclick（曲選択）を防止
-            if (index === 0) return;
-            const temp = loadedTracks[index];
-            loadedTracks[index] = loadedTracks[index - 1];
-            loadedTracks[index - 1] = temp;
-            
-            // 現在選択中の曲のインデックスを維持する
-            if (currentTrackIndex === index) currentTrackIndex--;
-            else if (currentTrackIndex === index - 1) currentTrackIndex++;
-            
-            updateTrackDisplay();
-            renderTrackList();
-        }
-
-        // 曲順を下げる（下へ）
-        window.moveTrackDown = function(index, event) {
-            event.stopPropagation(); // 親要素のclick（曲選択）を防止
-            if (index === loadedTracks.length - 1) return;
-            const temp = loadedTracks[index];
-            loadedTracks[index] = loadedTracks[index + 1];
-            loadedTracks[index + 1] = temp;
-            
-            if (currentTrackIndex === index) currentTrackIndex++;
-            else if (currentTrackIndex === index + 1) currentTrackIndex--;
-            
-            updateTrackDisplay();
-            renderTrackList();
-        }
-
-        // 曲切り替えボタン用
-        function changeTrack(direction) {
-            if (loadedTracks.length === 0) return;
-            musicPlayer.pause();
-            currentTrackIndex += direction;
-            if (currentTrackIndex < 0) currentTrackIndex = loadedTracks.length - 1;
-            if (currentTrackIndex >= loadedTracks.length) currentTrackIndex = 0;
-            updateTrackDisplay();
-            renderTrackList();
-        }
-
-        // 効果音（正解・不正解など）
         function playSound(type) {
+            if (!enableSound) return;
             if (audioCtx.state === 'suspended') audioCtx.resume();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
@@ -239,22 +86,16 @@
             }
         }
 
-        let currentQueue = [];
-        let currentIndex = 0;
-
         ref.on('value', (snapshot) => {
             const data = snapshot.val() || {};
             const queue = data.queue || [];
             const idx = data.current_index || 0;
-            currentQueue = queue;
-            currentIndex = idx;
+            const judgment = data.judgment;
             
             const listDiv = document.getElementById('ranking-list');
-            const judgeArea = document.getElementById('judge-area');
 
             if (queue.length === 0) {
-                listDiv.innerHTML = '<div style="text-align:center; color:#ccc; line-height: 80px;">待機中</div>';
-                judgeArea.style.display = 'none';
+                listDiv.innerHTML = '<div style="text-align:center; color:#ccc; line-height: 200px; font-size: 1.5rem;">待機中</div>';
             } else {
                 let html = '';
                 queue.forEach((name, i) => {
@@ -262,7 +103,13 @@
                     let status = '';
                     if (i === idx) {
                         className += ' active';
-                        status = '回答中';
+                        if (judgment === 'correct') {
+                            status = '<span class="status-text" style="color:#f39c12">正解</span>';
+                        } else if (judgment === 'incorrect') {
+                            status = '<span class="status-text" style="color:#4a90e2">不正解</span>';
+                        } else {
+                            status = '<span class="status-text" style="color:#e05275">解答権獲得</span>';
+                        }
                     }
                     if (i < idx) {
                         className += ' ng';
@@ -271,77 +118,15 @@
                     html += `<div class="${className}"><span class="rank-badge">${i+1}番手</span><span>${name}</span><span>${status}</span></div>`;
                 });
                 listDiv.innerHTML = html;
-                
-                if (idx < queue.length) {
-                    judgeArea.style.display = 'flex';
-                } else {
-                    judgeArea.style.display = 'none';
-                }
             }
             
-            if (window.lastLen && queue.length > window.lastLen) {
+            if (typeof window.lastLen !== 'undefined' && window.lastLen !== null && queue.length > window.lastLen) {
                 playSound('ping');
-                musicPlayer.pause(); // 誰かが押したら音楽を自動で一時停止
             }
+            if (judgment === 'correct') playSound('ok');
+            if (judgment === 'incorrect') playSound('ng');
+
             window.lastLen = queue.length;
-        });
-
-        // ⭕️ 正解
-        document.getElementById('btn-ok').addEventListener('click', () => {
-            playSound('ok');
-            musicPlayer.pause();
-            ref.update({ judgment: 'correct' });
-        });
-
-        // ❌ 不正解
-        document.getElementById('btn-ng').addEventListener('click', () => {
-            playSound('ng');
-            ref.update({ judgment: 'incorrect' });
-            
-            // 1.2秒後に次の人に権限を移し、音楽を再開する
-            setTimeout(() => {
-                ref.transaction((data) => {
-                    if (data) {
-                        data.judgment = null;
-                        data.current_index = (data.current_index || 0) + 1;
-                    }
-                    return data;
-                });
-                
-                // 次の人が回答できるよう、自動で音楽を途中から再開！
-                if (loadedTracks.length > 0 && musicPlayer.paused && currentIndex < currentQueue.length) {
-                    musicPlayer.play().catch(e => console.log("再生失敗: ", e));
-                }
-            }, 1200);
-        });
-
-        // スタート（曲も自動再生）
-        document.getElementById('start').addEventListener('click', () => {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            window.lastLen = 0;
-            
-            ref.once('value').then((snapshot) => {
-                const data = snapshot.val() || {};
-                if (data.judgment === 'correct') {
-                    changeTrack(1); // 正解していたら次の曲に進む
-                }
-                
-                // 音楽を最初から再生
-                if (loadedTracks.length > 0) {
-                    const file = loadedTracks[currentTrackIndex];
-                    musicPlayer.src = URL.createObjectURL(file);
-                    musicPlayer.currentTime = 0;
-                    musicPlayer.play().catch(e => console.log("再生失敗: ", e));
-                }
-
-                ref.set({ state: 'open', queue: [], current_index: 0, judgment: null });
-            });
-        });
-
-        // 全リセット（音楽も停止）
-        document.getElementById('reset').addEventListener('click', () => {
-            musicPlayer.pause();
-            ref.set({ state: 'closed', queue: [], current_index: 0, judgment: null });
         });
 
         db.ref(".info/connected").on("value", (snap) => {
