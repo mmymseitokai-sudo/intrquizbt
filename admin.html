@@ -21,10 +21,10 @@
         #btn-sabi-play { width: 100%; background: #f39c12; color: white; font-size: 1rem; padding: 10px; }
         #playlist-section { display: none; margin-top: 12px; border-top: 1px dashed #4f5f6f; padding-top: 12px; }
         #playlist-box { max-height: 150px; overflow-y: auto; border: 1px solid #4f5f6f; border-radius: 6px; background: #2c3e50; text-align: left; }
-        .playlist-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border-bottom: 1px solid #34495e; font-size: 0.85rem; cursor: pointer; color: #bdc3c7; }
+        .playlist-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border-bottom: 1px solid #34495e; font-size: 0.85rem; color: #bdc3c7; cursor:pointer;}
         .playlist-item.active { background: #e05275; color: #fff; font-weight: bold; }
-        .playlist-title { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 8px; }
-        .playlist-controls button { padding: 2px 8px; font-size: 0.75rem; background: #7f8c8d; color: #fff; border-radius: 3px; border: none; font-weight: bold; }
+        .playlist-title { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .playlist-controls button { width: auto; padding: 2px 8px; font-size: 0.75rem; background: #7f8c8d; color: #fff; border-radius: 3px; border: none; font-weight: bold; }
         #ranking-list { text-align: left; margin: 15px 0; min-height: 60px; border-top: 1px solid #4f5f6f; border-bottom: 1px solid #4f5f6f; padding: 5px 0; }
         .rank-item { padding: 8px 5px; border-bottom: 1px solid #34495e; font-size: 1rem; color: #7f8c8d; display: flex; justify-content: space-between; }
         .rank-item.active { background: #e05275; color: #fff; font-weight: bold; border-radius: 4px; }
@@ -37,6 +37,7 @@
         #start { background: #3498db; color: white; }
         #lock { background: #f1c40f; color: #333; }
         #reset { background: #95a5a6; color: white; }
+        .status-lamp { display: inline-block; width: 10px; height: 12px; border-radius: 50%; background: #ccc; margin-right: 8px; vertical-align: middle; }
     </style>
 </head>
 <body>
@@ -70,19 +71,23 @@
         <button id="start" class="action-btn">次の問題（イントロスタート）</button>
         <button id="lock" class="action-btn">受付終了（ロック）</button>
         <button id="reset" class="action-btn">全リセット（音楽停止）</button>
+        <div style="margin-top:20px; color:#bdc3c7; font-size:0.75rem;">
+            <span id="lamp" class="status-lamp"></span>接続: <span id="conn-status">接続中</span>
+        </div>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script>
-        // ▼▼▼ Firebaseの設定を貼り付け ▼▼▼
         const firebaseConfig = {
-            apiKey: "ここに貼り付け",
-            authDomain: "...",
-            projectId: "...",
-            storageBucket: "...",
-            messagingSenderId: "...",
-            appId: "..."
+            apiKey: "AIzaSyDzIx3CN5EnlznHgXMDNDb5Bulk9lpQpBw",
+            authDomain: "mmym-intr-hyosbt.firebaseapp.com",
+            databaseURL: "https://mmym-intr-hyosbt-default-rtdb.firebaseio.com",
+            projectId: "mmym-intr-hyosbt",
+            storageBucket: "mmym-intr-hyosbt.firebasestorage.app",
+            messagingSenderId: "581272142056",
+            appId: "1:581272142056:web:25101dd8425e884f21c95d",
+            measurementId: "G-2MNRCP27T9"
         };
         try { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); } catch (e) {}
         const db = firebase.database(); const ref = db.ref('quiz_room');
@@ -109,8 +114,10 @@
 
         function updateTrackDisplay() {
             const info = document.getElementById('track-info');
-            if (currentPlaylist.length > 0) { const item = currentPlaylist[currentTrackIndex]; const hasSabi = item.sabiName ? "読込済" : "未読込"; info.innerHTML = `[${currentTrackIndex + 1}/${currentPlaylist.length}] ${item.introName}<br>サビ音源: ${hasSabi}`; } 
-            else { info.innerText = "上のメニューからリストをセットしてください"; }
+            if (currentPlaylist.length > 0) {
+                const item = currentPlaylist[currentTrackIndex];
+                info.innerHTML = `[${currentTrackIndex + 1}/${currentPlaylist.length}] ${item.introName}`;
+            } else { info.innerText = "上のメニューからリストをセットしてください"; }
         }
 
         function renderTrackList() {
@@ -119,7 +126,8 @@
             section.style.display = 'block'; let html = '';
             currentPlaylist.forEach((item, i) => {
                 const isActive = (i === currentTrackIndex) ? 'active' : ''; const hasSabiText = item.sabiName ? "サビあり" : "サビなし";
-                html += `<div class="playlist-item ${isActive}" onclick="selectTrack(${i})"><div class="playlist-title">${i + 1}. ${item.introName}</div><div class="playlist-status">${hasSabiText}</div><div class="playlist-controls"><button onclick="moveTrackUp(${i}, event)">↑</button><button onclick="moveTrackDown(${i}, event)">↓</button></div></div>`;
+                html += `<div class="playlist-item ${isActive}" onclick="selectTrack(${i})"><div class="playlist-title">${i + 1}. ${item.introName}</div>
+                <div class="playlist-status">${hasSabiText}</div><div class="playlist-controls"><button onclick="moveTrackUp(${i}, event)">↑</button><button onclick="moveTrackDown(${i}, event)">↓</button></div></div>`;
             });
             box.innerHTML = html;
         }
@@ -176,6 +184,8 @@
         });
         document.getElementById('lock').addEventListener('click', () => ref.update({ state: 'closed' }));
         document.getElementById('reset').addEventListener('click', () => { sendAudioCommand('stop_all'); ref.set({ state: 'closed', queue: [], current_index: 0, judgment: null }); });
+
+        db.ref(".info/connected").on("value", (snap) => { const lamp = document.getElementById('lamp'); if(snap.val()) { lamp.style.background = "#2ecc71"; document.getElementById('conn-status').innerText = "接続完了"; } else { lamp.style.background = "#ccc"; document.getElementById('conn-status').innerText = "未接続"; } });
     </script>
 </body>
 </html>
