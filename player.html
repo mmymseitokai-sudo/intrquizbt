@@ -8,14 +8,21 @@
         body { font-family: -apple-system, sans-serif; text-align: center; padding: 20px; background: #fafafa; color: #333; touch-action: manipulation; }
         .container { max-width: 400px; margin: 0 auto; }
         h2 { font-size: 1.1rem; font-weight: 600; color: #777; margin-bottom: 25px; }
-        input { font-size: 1.1rem; padding: 12px; width: 85%; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
+        input[type="text"] { font-size: 1.1rem; padding: 12px; width: 85%; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
         #login-btn { font-size: 1.1rem; padding: 12px 35px; background: #333; color: white; border: none; border-radius: 8px; cursor: pointer; }
         #game-screen { display: none; }
-        #btn { width: 80vw; height: 80vw; max-width: 280px; max-height: 280px; border-radius: 50%; border: none; font-size: 1.8rem; color: white; background: #e5e5e5; box-shadow: 0 8px #cccccc; transition: all 0.1s; }
+        #btn { width: 80vw; height: 80vw; max-width: 280px; max-height: 280px; border-radius: 50%; border: none; font-size: 1.8rem; color: white; background: #e5e5e5; box-shadow: 0 8px #cccccc; transition: all 0.1s; margin: 0 auto;}
         #btn.active { background: #e05275 !important; box-shadow: 0 8px #b83251 !important; cursor: pointer; }
         #btn:active { transform: translateY(4px); box-shadow: 0 4px #999; }
         #status { margin-top: 30px; font-weight: 600; font-size: 1.5rem; min-height: 1.5rem; color: #555; }
         #rank-info { margin-top: 15px; font-size: 1rem; color: #999; }
+        #audio-status { font-size:0.8rem; color:#3498db; margin-top:10px; }
+        
+        #text-answer-screen { display: none; margin-top: 20px; }
+        #answer-input { font-size: 1.5rem; padding: 15px; width: 90%; border: 3px solid #e05275; border-radius: 12px; box-shadow: 0 4px 10px rgba(224,82,117,0.2); }
+        #live-answer-box { display: none; margin-top: 20px; background: #fff0f2; padding: 15px; border-radius: 8px; border: 1px solid #e05275; }
+        #live-answer-label { font-size: 1rem; color: #e05275; margin-bottom: 5px; font-weight: bold; }
+        #live-answer-text { font-size: 2rem; font-weight: bold; color: #333; min-height: 2.5rem; word-break: break-all; }
     </style>
 </head>
 <body>
@@ -23,18 +30,33 @@
         <div id="login-screen">
             <h2>チーム名設定</h2>
             <input type="text" id="team-name" placeholder="チーム名を入力してください">
-            <br><button id="login-btn" onclick="joinGame()">決定</button>
+            <br><button id="login-btn" onclick="joinGame()">決定して入室</button>
         </div>
         <div id="game-screen">
-            <div id="display-name" style="margin-bottom: 30px; font-size:1.2rem; color:#666;"></div>
+            <div id="display-name" style="margin-bottom: 20px; font-size:1.2rem; color:#666;"></div>
+            
             <button id="btn" disabled>準備中</button>
+            
+            <div id="text-answer-screen">
+                <div style="font-size:1.2rem; color:#e05275; font-weight:bold; margin-bottom:10px;">あなたの解答順です</div>
+                <input type="text" id="answer-input" autocomplete="off" placeholder="答えを入力...">
+            </div>
+
+            <div id="live-answer-box">
+                <div id="live-answer-label">他チームが入力中...</div>
+                <div id="live-answer-text"></div>
+            </div>
+
             <div id="status"></div>
             <div id="rank-info"></div>
+            <div id="audio-status"></div>
         </div>
     </div>
+
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script>
+        const MY_ROLE = 'player';
         const firebaseConfig = {
             apiKey: "AIzaSyDzIx3CN5EnlznHgXMDNDb5Bulk9lpQpBw",
             authDomain: "mmym-intr-hyosbt.firebaseapp.com",
@@ -46,25 +68,124 @@
             measurementId: "G-2MNRCP27T9"
         };
         try { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); } catch (e) {}
-        const db = firebase.database(); const ref = db.ref('quiz_room'); let myName = "";
-        function joinGame() { const input = document.getElementById('team-name'); if (!input.value) return; myName = input.value; document.getElementById('login-screen').style.display = 'none'; document.getElementById('game-screen').style.display = 'block'; document.getElementById('display-name').innerText = "チーム名: " + myName; }
-        const btn = document.getElementById('btn'); const status = document.getElementById('status'); const rankInfo = document.getElementById('rank-info');
+
+        const db = firebase.database(); const ref = db.ref('quiz_room');
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let musicPlayer = new Audio(); let sabiPlayer = new Audio();
+        let audioData = { intros: [], sabis: [] }; let currentEventName = ""; let lastJudgment = null;
+        let audioTarget = 'monitor'; let currentAnswerMode = 'oral'; let myName = "";
+
+        ref.child('settings/audio_target').on('value', snap => { audioTarget = snap.val() || 'monitor'; });
+        ref.child('settings/answer_mode').on('value', snap => { currentAnswerMode = snap.val() || 'oral'; });
+
+        document.getElementById('answer-input').addEventListener('input', (e) => {
+            ref.update({ current_answer: e.target.value });
+        });
+
+        function joinGame() {
+            const input = document.getElementById('team-name'); if (!input.value) return; myName = input.value;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const silentMp3 = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU5LjI3LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIAD+////7/X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX1//OEAAAAAEMAAAeAAAAAEQAAH//OEAAAAAEMAAAeAAAAAEQAAH//OEAAAAAEMAAAeAAAAAEQAAH";
+            musicPlayer.src = silentMp3; musicPlayer.play().then(()=>musicPlayer.pause()).catch(e=>{});
+            sabiPlayer.src = silentMp3; sabiPlayer.play().then(()=>sabiPlayer.pause()).catch(e=>{});
+
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            document.getElementById('display-name').innerText = "チーム名: " + myName;
+        }
+
         ref.on('value', (snapshot) => {
-            const data = snapshot.val() || {}; const state = data.state || 'closed'; const queue = data.queue || []; const idx = data.current_index || 0; const judgment = data.judgment;
-            const myRankIndex = queue.indexOf(myName); const amIInQueue = myRankIndex !== -1;
-            if (state === 'open' && !amIInQueue) { btn.disabled = false; btn.className = 'active'; btn.style.background = "#e05275"; btn.innerText = "早押し"; status.innerText = ""; rankInfo.innerText = ""; } 
-            else if (state === 'closed' && !amIInQueue) { btn.disabled = true; btn.className = ''; btn.style.background = "#e5e5e5"; btn.innerText = "受付終了"; status.innerText = queue.length > 0 ? "他のチームが回答中です" : "受付を終了しました"; rankInfo.innerText = ""; } 
-            else { btn.disabled = true; btn.className = '';
-                if (amIInQueue) {
-                    if (myRankIndex === idx) {
-                        if (judgment === 'correct') { btn.style.background = "#f39c12"; btn.innerText = "正解"; status.style.color = "#f39c12"; status.innerText = "正解"; rankInfo.innerText = ""; } 
-                        else if (judgment === 'incorrect') { btn.style.background = "#4a90e2"; btn.innerText = "不正解"; status.style.color = "#4a90e2"; status.innerText = "不正解"; rankInfo.innerText = ""; } 
-                        else { btn.style.background = "#e05275"; btn.innerText = "解答権獲得"; status.style.color = "#e05275"; status.innerText = "あなたの解答順です"; rankInfo.innerText = "お答えください"; }
-                    } else if (myRankIndex > idx) { btn.style.background = "#e5e5e5"; btn.innerText = (myRankIndex + 1) + "番手"; status.style.color = "#333"; status.innerText = "待機中"; rankInfo.innerText = `現在 ${myRankIndex + 1}番目に控えています`; } 
-                    else { btn.style.background = "#888"; btn.innerText = "回答終了"; status.style.color = "#888"; status.innerText = "判定終了"; rankInfo.innerText = ""; }
-                }
+            const data = snapshot.val() || {}; const eventName = data.current_event || "";
+            if (eventName && eventName !== currentEventName) {
+                currentEventName = eventName;
+                document.getElementById('audio-status').innerText = `【${eventName}】の音源を受信中...`;
+                ref.child('saved_audio').child(eventName).once('value').then(snap => {
+                    audioData = snap.val() || { intros: [], sabis: [] };
+                    document.getElementById('audio-status').innerText = `【${eventName}】準備完了`;
+                    setTimeout(() => document.getElementById('audio-status').innerText = "", 3000);
+                });
             }
         });
+
+        function playSound(type) {
+            if (audioTarget !== MY_ROLE) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination); const now = audioCtx.currentTime;
+            if (type === 'ping') { osc.type = 'sine'; osc.frequency.setValueAtTime(880, now); osc.frequency.setValueAtTime(1760, now+0.1); gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now+0.4); osc.start(); osc.stop(now+0.4); } 
+            else if (type === 'ok') { osc.type = 'triangle'; osc.frequency.setValueAtTime(1320, now); osc.frequency.setValueAtTime(1320, now+0.2); gain.gain.setValueAtTime(0.3, now); gain.gain.setValueAtTime(0, now+0.15); gain.gain.setValueAtTime(0.3, now+0.2); gain.gain.exponentialRampToValueAtTime(0.01, now+0.6); osc.start(); osc.stop(now+0.6); } 
+            else if (type === 'ng') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now); osc.frequency.linearRampToValueAtTime(100, now+0.4); gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now+0.4); osc.start(); osc.stop(now+0.4); }
+        }
+
+        ref.child('audio_state').on('value', (snapshot) => {
+            const data = snapshot.val(); if (!data || !audioData.intros) return;
+            const action = data.action; const idx = data.track_index;
+            if (audioTarget !== MY_ROLE) { musicPlayer.pause(); sabiPlayer.pause(); return; }
+            if (action === 'play_intro') { sabiPlayer.pause(); if (audioData.intros[idx]) { musicPlayer.src = audioData.intros[idx]; musicPlayer.currentTime = 0; musicPlayer.play().catch(e=>{}); } } 
+            else if (action === 'play_intro_resume') { sabiPlayer.pause(); if (musicPlayer.paused) musicPlayer.play().catch(e=>{}); } 
+            else if (action === 'pause_intro') { musicPlayer.pause(); } 
+            else if (action === 'play_sabi') { musicPlayer.pause(); if (audioData.sabis[idx]) { if (sabiPlayer.src !== audioData.sabis[idx]) { sabiPlayer.src = audioData.sabis[idx]; sabiPlayer.currentTime = 0; } if (sabiPlayer.paused) sabiPlayer.play().catch(e=>{}); } } 
+            else if (action === 'pause_sabi') { sabiPlayer.pause(); } 
+            else if (action === 'stop_all') { musicPlayer.pause(); sabiPlayer.pause(); } 
+        });
+
+        const btn = document.getElementById('btn'); const status = document.getElementById('status'); const rankInfo = document.getElementById('rank-info');
+        const textAnswerScreen = document.getElementById('text-answer-screen'); const answerInput = document.getElementById('answer-input');
+        const liveAnswerBox = document.getElementById('live-answer-box'); const liveAnswerText = document.getElementById('live-answer-text');
+
+        ref.on('value', (snapshot) => {
+            const data = snapshot.val() || {}; const state = data.state || 'closed'; const queue = data.queue || []; const idx = data.current_index || 0; const judgment = data.judgment;
+            const currentAnswer = data.current_answer || "";
+            const myRankIndex = queue.indexOf(myName); const amIInQueue = myRankIndex !== -1;
+
+            textAnswerScreen.style.display = 'none';
+            liveAnswerBox.style.display = 'none';
+
+            if (state === 'open' && !amIInQueue) { 
+                btn.style.display = 'inline-block'; btn.disabled = false; btn.className = 'active'; btn.style.background = "#e05275"; btn.innerText = "早押し"; status.innerText = ""; rankInfo.innerText = ""; 
+            } 
+            else if (state === 'closed' && !amIInQueue) { 
+                btn.style.display = 'inline-block'; btn.disabled = true; btn.className = ''; btn.style.background = "#e5e5e5"; btn.innerText = "受付終了"; status.innerText = queue.length > 0 ? "他のチームが回答中です" : "受付を終了しました"; rankInfo.innerText = ""; 
+            } 
+            else { 
+                btn.disabled = true; btn.className = '';
+                if (amIInQueue) {
+                    if (myRankIndex === idx) {
+                        if (judgment === 'correct') { 
+                            btn.style.display = 'inline-block'; btn.style.background = "#f39c12"; btn.innerText = "⭕️"; status.style.color = "#f39c12"; status.innerText = "正解"; rankInfo.innerText = ""; answerInput.value = "";
+                        } else if (judgment === 'incorrect') { 
+                            btn.style.display = 'inline-block'; btn.style.background = "#4a90e2"; btn.innerText = "❌"; status.style.color = "#4a90e2"; status.innerText = "不正解"; rankInfo.innerText = ""; answerInput.value = "";
+                        } else { 
+                            if (currentAnswerMode === 'text') {
+                                btn.style.display = 'none'; textAnswerScreen.style.display = 'block'; status.innerText = ""; rankInfo.innerText = "";
+                            } else {
+                                btn.style.display = 'inline-block'; btn.style.background = "#e05275"; btn.innerText = "解答権獲得"; status.style.color = "#e05275"; status.innerText = "あなたの解答順です"; rankInfo.innerText = "お答えください"; answerInput.value = "";
+                            }
+                        }
+                    } else if (myRankIndex > idx) { 
+                        btn.style.display = 'inline-block'; btn.style.background = "#e5e5e5"; btn.innerText = (myRankIndex + 1) + "番手"; status.style.color = "#333"; status.innerText = "待機中"; rankInfo.innerText = `現在 ${myRankIndex + 1}番目に控えています`; 
+                        if (currentAnswerMode === 'text') { liveAnswerBox.style.display = 'block'; liveAnswerText.innerText = currentAnswer; }
+                    } else { 
+                        btn.style.display = 'inline-block'; btn.style.background = "#888"; btn.innerText = "回答終了"; status.style.color = "#888"; status.innerText = "判定終了"; rankInfo.innerText = ""; 
+                    }
+                }
+            }
+            
+            if (!amIInQueue && state !== 'open' && currentAnswerMode === 'text' && idx < queue.length) {
+                liveAnswerBox.style.display = 'block'; liveAnswerText.innerText = currentAnswer;
+            }
+
+            if (typeof window.lastLen !== 'undefined' && window.lastLen !== null && queue.length > window.lastLen) {
+                if (window.lastLen === 0) playSound('ping');
+                if (audioTarget === MY_ROLE) { musicPlayer.pause(); sabiPlayer.pause(); }
+            }
+            if (judgment !== lastJudgment) {
+                if (judgment === 'correct') playSound('ok'); if (judgment === 'incorrect') playSound('ng');
+                lastJudgment = judgment;
+            }
+            window.lastLen = queue.length;
+        });
+
         btn.addEventListener('click', (e) => { e.preventDefault(); ref.child('queue').transaction((currentQueue) => { if (currentQueue === null) return [myName]; if (currentQueue.includes(myName)) return; return [...currentQueue, myName]; }); });
     </script>
 </body>
