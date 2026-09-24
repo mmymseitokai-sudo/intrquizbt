@@ -2,32 +2,23 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>音源アップローダー（管理機能付き）</title>
+    <title>音源アップローダー（個別登録版）</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { font-family: -apple-system, sans-serif; text-align: center; padding: 20px; background: #34495e; color: #ecf0f1; }
         .container { max-width: 600px; margin: 0 auto; background: #2c3e50; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
         h1 { font-size: 1.3rem; font-weight: bold; color: #bdc3c7; margin-bottom: 20px; }
         
-        /* セクション共通 */
         .setup-area { background: #34495e; padding: 20px; border-radius: 8px; text-align: left; margin-bottom: 20px; }
         .area-title { font-size: 1.1rem; font-weight: bold; color: #f1c40f; margin-top: 0; border-bottom: 1px solid #4f5f6f; padding-bottom: 8px; margin-bottom: 15px; }
         
-        /* 保存済みリスト管理 */
         .list-item { background: #1a252f; padding: 12px; margin-bottom: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;}
         .list-name { font-weight: bold; color: #ecf0f1; flex-grow: 1; margin-right: 10px; word-break: break-all; margin-bottom: 5px; }
         .list-actions { display: flex; gap: 5px; }
         .list-actions button { width: auto; padding: 6px 12px; font-size: 0.8rem; margin: 0; border-radius: 4px; }
         
-        /* フォーム */
         input[type="text"] { font-size: 1.1rem; padding: 12px; width: calc(100% - 24px); margin-bottom: 15px; border: 1px solid #7f8c8d; border-radius: 6px; background: #2c3e50; color: white; outline: none; }
         button { font-size: 1rem; padding: 12px; margin: 5px 0; width: 100%; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; color: white; }
-        
-        /* ボタンの色 */
-        .btn-append { background: #3498db; }
-        .btn-rename { background: #95a5a6; }
-        .btn-delete { background: #e74c3c; }
-        .btn-cancel { background: #7f8c8d; display: none; }
         
         #status { font-weight: bold; margin-top: 15px; color: #f1c40f; display: none; background: #1a252f; padding: 10px; border-radius: 6px; font-size: 0.9rem; line-height: 1.5; }
     </style>
@@ -36,30 +27,43 @@
     <div class="container">
         <h1>音源データ管理・アップローダー</h1>
 
-        <!-- ① 保存済みプレイリストの管理エリア -->
         <div class="setup-area">
             <h2 class="area-title">保存済みのリスト管理</h2>
-            <div id="playlist-container">
-                <p style="font-size:0.85rem; color:#95a5a6;">読込中...</p>
-            </div>
+            <div id="playlist-container"><p style="font-size:0.85rem; color:#95a5a6;">読込中...</p></div>
         </div>
         
-        <!-- ② 新規作成・追加エリア -->
         <div class="setup-area">
             <h2 class="area-title" id="form-title">新規プレイリスト作成</h2>
-            <p style="font-size:0.85rem; color:#bdc3c7;">① リストの名前</p>
+            <p style="font-size:0.85rem; color:#bdc3c7;">1. リストの名前を入力</p>
             <input type="text" id="event-name" placeholder="例：予選Aブロック">
             <input type="hidden" id="edit-mode" value="new">
+        </div>
 
-            <p style="font-size:0.85rem; color:#bdc3c7; margin-top:15px;">② フォルダを選択<br><span style="color:#e74c3c; font-size:0.75rem;">※DB負担軽減のため、1回5〜10曲程度での送信を推奨します。</span></p>
-            <button onclick="document.getElementById('audio-files').click()" style="background:#2ecc71;">1. イントロフォルダを選択</button>
-            <button onclick="document.getElementById('sabi-files').click()" style="background:#e67e22;">2. サビフォルダを選択</button>
+        <div class="setup-area" style="background:#293a4c;">
+            <h2 class="area-title" style="color:#2ecc71;">2. 1曲ずつ登録する</h2>
+            <p style="font-size:0.85rem; color:#bdc3c7; margin-bottom:5px;">※動画も選べますが、長いとエラーになるため10〜20秒にカットしたものを推奨します。</p>
             
-            <button id="btn-upload" style="background:#e05275; margin-top:20px; display:none;">3. クラウドに保存（送信）</button>
-            <button id="btn-cancel" class="btn-cancel" onclick="resetForm()">追加をキャンセル</button>
+            <input type="text" id="track-title" placeholder="曲名（例：マリーゴールド）" style="margin-top:10px;">
             
-            <input type="file" id="audio-files" multiple accept="audio/*,.mp3,.m4a,.wav" style="display:none">
-            <input type="file" id="sabi-files" multiple accept="audio/*,.mp3,.m4a,.wav" style="display:none">
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                <button onclick="document.getElementById('intro-file').click()" style="width:48%; background:#3498db;">イントロ選択</button>
+                <button onclick="document.getElementById('sabi-file').click()" style="width:48%; background:#e67e22;">サビ選択(任意)</button>
+            </div>
+            
+            <div id="file-info" style="font-size:0.85rem; color:#bdc3c7; margin-bottom:15px; background:#1a252f; padding:8px; border-radius:4px;">イントロ: 未選択 <br> サビ: 未選択</div>
+            
+            <input type="file" id="intro-file" accept="audio/*,video/*,.mp3,.m4a,.mp4" style="display:none">
+            <input type="file" id="sabi-file" accept="audio/*,video/*,.mp3,.m4a,.mp4" style="display:none">
+            
+            <button onclick="addTrack()" style="background:#2ecc71;">＋ この曲をリストに追加</button>
+        </div>
+
+        <div class="setup-area">
+            <h2 class="area-title">3. 追加された曲リスト</h2>
+            <div id="pending-list" style="margin-bottom: 15px; font-size:0.9rem; color:#95a5a6;">(まだ曲がありません)</div>
+            
+            <button id="btn-upload" style="background:#e05275; display:none;">データベースに保存（送信）</button>
+            <button id="btn-cancel" style="background:#7f8c8d; display:none;" onclick="resetForm()">追加をキャンセル</button>
         </div>
         
         <div id="status"></div>
@@ -79,132 +83,96 @@
             measurementId: "G-2MNRCP27T9"
         };
         try { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); } catch (e) {}
-
         const db = firebase.database(); const ref = db.ref('quiz_room');
-        let loadedTracks = []; let rawSabiTracks = []; let loadedSabiTracks = [];
 
-        // --- 保存済みリストの表示と管理 ---
+        let pendingTracks = [];
+        let introFile = null;
+        let sabiFile = null;
+
         ref.child('saved_playlists').on('value', (snap) => {
-            const data = snap.val() || {};
-            const container = document.getElementById('playlist-container');
-            container.innerHTML = '';
+            const data = snap.val() || {}; const container = document.getElementById('playlist-container'); container.innerHTML = '';
             const keys = Object.keys(data);
-            
-            if(keys.length === 0) {
-                container.innerHTML = '<p style="font-size:0.85rem; color:#95a5a6;">保存されているリストはありません。</p>';
-                return;
-            }
-            
+            if(keys.length === 0) { container.innerHTML = '<p style="font-size:0.85rem; color:#95a5a6;">保存されているリストはありません。</p>'; return; }
             keys.forEach(key => {
-                const count = data[key].length;
                 container.innerHTML += `
                     <div class="list-item">
-                        <div class="list-name">${key} <span style="font-size:0.8rem;color:#95a5a6;">(${count}曲)</span></div>
+                        <div class="list-name">${key} <span style="font-size:0.8rem;color:#95a5a6;">(${data[key].length}曲)</span></div>
                         <div class="list-actions">
-                            <button class="btn-append" onclick="prepareAppend('${key}')">＋曲を追加</button>
-                            <button class="btn-rename" onclick="renamePlaylist('${key}')">名前変更</button>
-                            <button class="btn-delete" onclick="deletePlaylist('${key}')">削除</button>
+                            <button style="background:#3498db;" onclick="prepareAppend('${key}')">追加</button>
+                            <button style="background:#95a5a6;" onclick="renamePlaylist('${key}')">名前変更</button>
+                            <button style="background:#e74c3c;" onclick="deletePlaylist('${key}')">削除</button>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             });
         });
 
-        // リスト削除
         window.deletePlaylist = async function(name) {
-            if (confirm(`本当に「${name}」を削除しますか？\n（復元できません）`)) {
-                await ref.child('saved_playlists').child(name).remove();
-                await ref.child('saved_audio').child(name).remove();
-                alert(`「${name}」を削除しました。`);
+            if (confirm(`「${name}」を削除しますか？`)) {
+                await ref.child('saved_playlists').child(name).remove(); await ref.child('saved_audio').child(name).remove();
                 if(document.getElementById('event-name').value === name) resetForm();
             }
         }
 
-        // リスト名前変更
         window.renamePlaylist = async function(oldName) {
-            const newName = prompt(`「${oldName}」の新しい名前を入力してください:`, oldName);
+            const newName = prompt(`新しい名前を入力:`, oldName);
             if (!newName || newName === oldName) return;
             const safeName = newName.trim().replace(/[.#$[\]]/g, "_");
-            
             try {
-                // 古いデータを取得
                 const pSnap = await ref.child('saved_playlists').child(oldName).once('value');
                 const aSnap = await ref.child('saved_audio').child(oldName).once('value');
-                
-                // 新しい名前にデータをコピー
                 await ref.child('saved_playlists').child(safeName).set(pSnap.val());
                 await ref.child('saved_audio').child(safeName).set(aSnap.val());
-                
-                // 古いデータを削除
                 await ref.child('saved_playlists').child(oldName).remove();
                 await ref.child('saved_audio').child(oldName).remove();
-                
-                alert("名称を変更しました！");
-            } catch(e) {
-                alert("エラーが発生しました: " + e.message);
-            }
+            } catch(e) { alert("エラー: " + e.message); }
         }
 
-        // 追加モードの準備
         window.prepareAppend = function(name) {
-            document.getElementById('form-title').innerText = `「${name}」に曲を追加`;
-            document.getElementById('form-title').style.color = "#3498db";
-            document.getElementById('event-name').value = name;
-            document.getElementById('event-name').readOnly = true; // 追加時は名前変更不可
-            document.getElementById('edit-mode').value = 'append';
-            document.getElementById('btn-cancel').style.display = 'block';
-            window.scrollTo(0, document.body.scrollHeight);
-            alert(`「${name}」の末尾に曲を追加するモードになりました。\n下から音源を選択して保存してください。`);
+            document.getElementById('form-title').innerText = `「${name}」に曲を追加`; document.getElementById('form-title').style.color = "#3498db";
+            document.getElementById('event-name').value = name; document.getElementById('event-name').readOnly = true;
+            document.getElementById('edit-mode').value = 'append'; document.getElementById('btn-cancel').style.display = 'block';
+            alert(`下から曲を作って「リストに追加」してください。最後に送信を押すと継ぎ足されます。`);
         }
 
-        // フォームのリセット
         window.resetForm = function() {
-            document.getElementById('form-title').innerText = `新規プレイリスト作成`;
-            document.getElementById('form-title').style.color = "#f1c40f";
-            document.getElementById('event-name').value = '';
-            document.getElementById('event-name').readOnly = false;
-            document.getElementById('edit-mode').value = 'new';
-            document.getElementById('btn-cancel').style.display = 'none';
-            loadedTracks = []; rawSabiTracks = []; loadedSabiTracks = [];
-            document.getElementById('audio-files').value = '';
-            document.getElementById('sabi-files').value = '';
-            document.getElementById('btn-upload').style.display = 'none';
+            document.getElementById('form-title').innerText = `新規プレイリスト作成`; document.getElementById('form-title').style.color = "#f1c40f";
+            document.getElementById('event-name').value = ''; document.getElementById('event-name').readOnly = false;
+            document.getElementById('edit-mode').value = 'new'; document.getElementById('btn-cancel').style.display = 'none';
+            pendingTracks = []; introFile = null; sabiFile = null; updateFileInfo(); renderPendingList();
             document.getElementById('status').style.display = 'none';
         }
 
-        // --- ファイル選択とアップロード ---
-        document.getElementById('audio-files').addEventListener('change', (e) => {
-            loadedTracks = Array.from(e.target.files); loadedTracks.sort((a, b) => a.name.localeCompare(b.name, 'ja')); checkReady();
-        });
-        document.getElementById('sabi-files').addEventListener('change', (e) => {
-            rawSabiTracks = Array.from(e.target.files); checkReady();
-        });
+        document.getElementById('intro-file').addEventListener('change', e => { introFile = e.target.files[0]; updateFileInfo(); });
+        document.getElementById('sabi-file').addEventListener('change', e => { sabiFile = e.target.files[0]; updateFileInfo(); });
+        function updateFileInfo() {
+            document.getElementById('file-info').innerHTML = `イントロ: ${introFile ? introFile.name : "<span style='color:#e74c3c'>未選択</span>"} <br> サビ: ${sabiFile ? sabiFile.name : "未選択"}`;
+        }
 
-        function checkReady() {
-            if (loadedTracks.length > 0) {
-                document.getElementById('btn-upload').style.display = 'block'; document.getElementById('status').style.display = 'block';
-                document.getElementById('status').innerText = `イントロ: ${loadedTracks.length}曲 / サビ: ${rawSabiTracks.length}曲 選択済`;
+        window.addTrack = function() {
+            const title = document.getElementById('track-title').value.trim();
+            if (!title || !introFile) return alert("曲名とイントロ音源は必須です！");
+            pendingTracks.push({ title: title, introFile: introFile, sabiFile: sabiFile });
+            document.getElementById('track-title').value = ""; introFile = null; sabiFile = null;
+            document.getElementById('intro-file').value = ""; document.getElementById('sabi-file').value = "";
+            updateFileInfo(); renderPendingList();
+        }
+
+        function renderPendingList() {
+            const listDiv = document.getElementById('pending-list');
+            if (pendingTracks.length === 0) {
+                listDiv.innerHTML = "(まだ曲がありません)"; document.getElementById('btn-upload').style.display = 'none'; return;
             }
-        }
-
-        function cleanName(name) { return name.toLowerCase().replace(/\.[^/.]+$/, "").replace(/intro|sabi|イントロ|サビ|clip|answer|music|曲/g, "").replace(/[^a-zA-Z0-9０-９ぁ-んァ-ヶ亜-熙]/g, ""); }
-        function getSimilarity(str1, str2) {
-            const s1 = cleanName(str1); const s2 = cleanName(str2);
-            if (s1 === s2) return 1.0; if (s1.includes(s2) || s2.includes(s1)) return 0.9;
-            const getBigrams = (str) => { const bigrams = new Set(); for (let i = 0; i < str.length - 1; i++) { bigrams.add(str.substring(i, i + 2)); } return bigrams; };
-            const b1 = getBigrams(s1); const b2 = getBigrams(s2);
-            if (b1.size === 0 || b2.size === 0) return 0;
-            let intersection = 0; for (let ngram of b1) { if (b2.has(ngram)) intersection++; } return (2.0 * intersection) / (b1.size + b2.size);
-        }
-
-        function pairSabiTracks() {
-            if (loadedTracks.length === 0 || rawSabiTracks.length === 0) { loadedSabiTracks = new Array(loadedTracks.length).fill(null); return; }
-            loadedSabiTracks = loadedTracks.map(introFile => {
-                let bestMatch = null; let highestScore = -1;
-                rawSabiTracks.forEach(sabiFile => { const score = getSimilarity(introFile.name, sabiFile.name); if (score > highestScore) { highestScore = score; bestMatch = sabiFile; } });
-                return (highestScore > 0.15) ? bestMatch : null;
+            let html = "";
+            pendingTracks.forEach((t, i) => {
+                html += `<div style="background:#1a252f; padding:8px; margin-bottom:5px; border-radius:4px; display:flex; justify-content:space-between; align-items:center;">
+                    <div style="text-align:left;">${i+1}. ${t.title} <span style="font-size:0.7rem;color:#7f8c8d;">[${t.sabiFile ? 'サビ有' : 'サビ無'}]</span></div>
+                    <button onclick="removeTrack(${i})" style="width:auto; padding:4px 10px; margin:0; background:#e74c3c; border-radius:4px; font-size:0.8rem;">削除</button>
+                </div>`;
             });
+            listDiv.innerHTML = html; document.getElementById('btn-upload').style.display = 'block';
         }
+
+        window.removeTrack = function(i) { pendingTracks.splice(i, 1); renderPendingList(); }
 
         const fileToBase64 = (file) => new Promise((resolve, reject) => {
             const reader = new FileReader(); reader.readAsDataURL(file);
@@ -213,53 +181,38 @@
 
         document.getElementById('btn-upload').addEventListener('click', async () => {
             const eventName = document.getElementById('event-name').value.trim().replace(/[.#$[\]]/g, "_");
-            if (!eventName) return alert("プレイリストの名前を入力してください！");
+            if (!eventName) return alert("リストの名前を入力してください！");
             const mode = document.getElementById('edit-mode').value;
-
-            const statusDiv = document.getElementById('status'); statusDiv.innerText = "変換中...画面を閉じないでください";
-            pairSabiTracks();
+            const statusDiv = document.getElementById('status'); statusDiv.innerText = "変換中...画面を閉じないでください"; statusDiv.style.display = 'block';
 
             try {
-                let startIndex = 0;
-                let existingPlaylist = [];
-                
-                // 「追加モード」の場合は、既存のリストの曲数を調べて、その続きから追加する
+                let startIndex = 0; let existingPlaylist = [];
                 if (mode === 'append') {
                     const snap = await ref.child('saved_playlists').child(eventName).once('value');
-                    existingPlaylist = snap.val() || [];
-                    startIndex = existingPlaylist.length;
+                    existingPlaylist = snap.val() || []; startIndex = existingPlaylist.length;
                 }
 
-                for (let i = 0; i < loadedTracks.length; i++) {
-                    const targetIdx = startIndex + i; // 保存する位置（新規なら0から、追加なら続きから）
-                    const introFile = loadedTracks[i]; const sabiFile = loadedSabiTracks[i];
+                for (let i = 0; i < pendingTracks.length; i++) {
+                    const targetIdx = startIndex + i; const t = pendingTracks[i];
+                    statusDiv.innerText = `[${i + 1}/${pendingTracks.length}] ${t.title} を変換中...`;
                     
-                    statusDiv.innerText = `[${i + 1}/${loadedTracks.length}] ${introFile.name} 変換中...`;
-                    const introBase64 = await fileToBase64(introFile);
+                    const introBase64 = await fileToBase64(t.introFile);
                     await ref.child('saved_audio').child(eventName).child('intros').child(targetIdx).set(introBase64);
                     
                     let sabiBase64 = "";
-                    if (sabiFile) { 
-                        statusDiv.innerText = `[${i + 1}/${loadedTracks.length}] ${sabiFile.name} 変換中...`; 
-                        sabiBase64 = await fileToBase64(sabiFile); 
-                    }
+                    if (t.sabiFile) { sabiBase64 = await fileToBase64(t.sabiFile); }
                     await ref.child('saved_audio').child(eventName).child('sabis').child(targetIdx).set(sabiBase64);
                     
-                    existingPlaylist.push({ introName: introFile.name, sabiName: sabiFile ? sabiFile.name : "" });
+                    existingPlaylist.push({ introName: t.title, sabiName: t.sabiFile ? `${t.title}(サビ)` : "" });
                 }
 
-                statusDiv.innerText = "データベースにプレイリスト情報を送信中...";
+                statusDiv.innerText = "データベースに情報を送信中...";
                 await ref.child('saved_playlists').child(eventName).set(existingPlaylist);
                 
-                if (mode === 'append') {
-                    statusDiv.innerText = `完了！「${eventName}」に ${loadedTracks.length}曲 追加されました。`;
-                } else {
-                    statusDiv.innerText = `完了！新規リスト「${eventName}」が保存されました。`;
-                }
-                
+                statusDiv.innerText = mode === 'append' ? `完了！「${eventName}」に追加されました。` : `完了！新規リスト「${eventName}」が保存されました。`;
                 setTimeout(() => { resetForm(); }, 3000);
 
-            } catch (e) { alert("送信エラー: ファイルが大きすぎます。\n" + e.message); statusDiv.innerText = "エラー発生"; }
+            } catch (e) { alert("送信エラー: 動画ファイル等が大きすぎる可能性があります。\n" + e.message); statusDiv.innerText = "エラー発生"; }
         });
     </script>
 </body>
