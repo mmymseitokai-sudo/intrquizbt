@@ -5,8 +5,8 @@
     <title>早押しボタン</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
-        body { font-family: -apple-system, sans-serif; text-align: center; padding: 20px; background: #fafafa; color: #333; touch-action: manipulation; }
-        .container { max-width: 400px; margin: 0 auto; }
+        body { font-family: -apple-system, sans-serif; text-align: center; padding: 20px; background: #fafafa; color: #333; touch-action: manipulation; margin: 0; }
+        .container { max-width: 400px; margin: 0 auto; padding-top: 20px; }
         h2 { font-size: 1.1rem; font-weight: 600; color: #777; margin-bottom: 25px; }
         input[type="text"] { font-size: 1.1rem; padding: 12px; width: 85%; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
         #login-btn { font-size: 1.1rem; padding: 12px 35px; background: #333; color: white; border: none; border-radius: 8px; cursor: pointer; }
@@ -23,9 +23,31 @@
         #live-answer-box { display: none; margin-top: 20px; background: #fff0f2; padding: 15px; border-radius: 8px; border: 1px solid #e05275; }
         #live-answer-label { font-size: 1rem; color: #e05275; margin-bottom: 5px; font-weight: bold; }
         #live-answer-text { font-size: 2rem; font-weight: bold; color: #333; min-height: 2.5rem; word-break: break-all; }
+
+        /* LINE内ブラウザ警告 */
+        #line-warning { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #e74c3c; color: white; z-index: 10000; padding: 40px 20px; box-sizing: border-box; }
+        #line-warning h2 { color: white; font-size: 1.5rem; margin-bottom: 20px; }
+        #line-warning p { font-size: 1.1rem; line-height: 1.8; }
+
+        /* スマホ用音源ロック解除 */
+        #unlock-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(44, 62, 80, 0.95); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; }
+        #btn-unlock { font-size: 1.5rem; font-weight: bold; padding: 20px 40px; background: #e05275; color: white; border: none; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 20px rgba(224,82,117,0.5); }
     </style>
 </head>
 <body>
+    <!-- LINEアプリ内ブラウザ警告 -->
+    <div id="line-warning">
+        <h2>LINEのブラウザでは<br>音が鳴りません！</h2>
+        <p>画面右下（または右上）の<br><strong>「︙」や「≡」などのメニューボタン</strong>を押して、<br><br><strong>「Safariで開く」</strong><br>または<br><strong>「ブラウザ（Chrome）で開く」</strong><br><br>を選んでから参加してください。</p>
+    </div>
+
+    <!-- スマホ音源ロック解除 -->
+    <div id="unlock-overlay">
+        <h2 style="margin-bottom: 20px;">システムの準備ができました</h2>
+        <p style="margin-bottom: 40px; line-height: 1.6;">スマホのセキュリティを解除するため<br>下のボタンをタップしてください</p>
+        <button id="btn-unlock">タップして開始する</button>
+    </div>
+
     <div class="container">
         <div id="login-screen">
             <h2>チーム名設定</h2>
@@ -75,6 +97,21 @@
         let audioData = { intros: [], sabis: [] }; let currentEventName = ""; let lastJudgment = null;
         let audioTarget = 'monitor'; let currentAnswerMode = 'oral'; let myName = "";
 
+        // LINEブラウザ判定
+        if (navigator.userAgent.includes("Line") || navigator.userAgent.includes("LINE")) {
+            document.getElementById('line-warning').style.display = 'block';
+            document.getElementById('unlock-overlay').style.display = 'none';
+        }
+
+        // スマホ音源ロック解除
+        document.getElementById('btn-unlock').addEventListener('click', () => {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const silentMp3 = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU5LjI3LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIAD+////7/X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX1//OEAAAAAEMAAAeAAAAAEQAAH//OEAAAAAEMAAAeAAAAAEQAAH//OEAAAAAEMAAAeAAAAAEQAAH";
+            musicPlayer.src = silentMp3; musicPlayer.play().then(()=>musicPlayer.pause()).catch(e=>{});
+            sabiPlayer.src = silentMp3; sabiPlayer.play().then(()=>sabiPlayer.pause()).catch(e=>{});
+            document.getElementById('unlock-overlay').style.display = 'none';
+        });
+
         ref.child('settings/audio_target').on('value', snap => { audioTarget = snap.val() || 'monitor'; });
         ref.child('settings/answer_mode').on('value', snap => { currentAnswerMode = snap.val() || 'oral'; });
 
@@ -84,11 +121,6 @@
 
         function joinGame() {
             const input = document.getElementById('team-name'); if (!input.value) return; myName = input.value;
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const silentMp3 = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU5LjI3LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIAD+////7/X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX1//OEAAAAAEMAAAeAAAAAEQAAH//OEAAAAAEMAAAeAAAAAEQAAH//OEAAAAAEMAAAeAAAAAEQAAH";
-            musicPlayer.src = silentMp3; musicPlayer.play().then(()=>musicPlayer.pause()).catch(e=>{});
-            sabiPlayer.src = silentMp3; sabiPlayer.play().then(()=>sabiPlayer.pause()).catch(e=>{});
-
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('game-screen').style.display = 'block';
             document.getElementById('display-name').innerText = "チーム名: " + myName;
@@ -121,6 +153,7 @@
             const data = snapshot.val(); if (!data || !audioData.intros) return;
             const action = data.action; const idx = data.track_index;
             if (audioTarget !== MY_ROLE) { musicPlayer.pause(); sabiPlayer.pause(); return; }
+            
             if (action === 'play_intro') { sabiPlayer.pause(); if (audioData.intros[idx]) { musicPlayer.src = audioData.intros[idx]; musicPlayer.currentTime = 0; musicPlayer.play().catch(e=>{}); } } 
             else if (action === 'play_intro_resume') { sabiPlayer.pause(); if (musicPlayer.paused) musicPlayer.play().catch(e=>{}); } 
             else if (action === 'pause_intro') { musicPlayer.pause(); } 
@@ -152,9 +185,9 @@
                 if (amIInQueue) {
                     if (myRankIndex === idx) {
                         if (judgment === 'correct') { 
-                            btn.style.display = 'inline-block'; btn.style.background = "#f39c12"; btn.innerText = "⭕️"; status.style.color = "#f39c12"; status.innerText = "正解"; rankInfo.innerText = ""; answerInput.value = "";
+                            btn.style.display = 'inline-block'; btn.style.background = "#f39c12"; btn.innerText = "正解"; status.style.color = "#f39c12"; status.innerText = "正解"; rankInfo.innerText = ""; answerInput.value = "";
                         } else if (judgment === 'incorrect') { 
-                            btn.style.display = 'inline-block'; btn.style.background = "#4a90e2"; btn.innerText = "❌"; status.style.color = "#4a90e2"; status.innerText = "不正解"; rankInfo.innerText = ""; answerInput.value = "";
+                            btn.style.display = 'inline-block'; btn.style.background = "#4a90e2"; btn.innerText = "不正解"; status.style.color = "#4a90e2"; status.innerText = "不正解"; rankInfo.innerText = ""; answerInput.value = "";
                         } else { 
                             if (currentAnswerMode === 'text') {
                                 btn.style.display = 'none'; textAnswerScreen.style.display = 'block'; status.innerText = ""; rankInfo.innerText = "";
