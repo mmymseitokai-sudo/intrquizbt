@@ -9,15 +9,20 @@
         .container { max-width: 800px; margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
         h1 { font-size: 2rem; font-weight: 600; color: #555; margin-bottom: 20px; letter-spacing: 0.1em; }
         
+        /* タイマー表示 */
+        #countdown-timer { font-size: 3.5rem; font-weight: bold; color: #e74c3c; margin: 20px 0; display: none; }
+
         #live-answer-box { display: none; margin: 20px 0; background: #fff0f2; border: 3px solid #e05275; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(224,82,117,0.15); }
         #live-answer-label { font-size: 1.2rem; color: #e05275; font-weight: bold; margin-bottom: 10px; }
         #live-answer-text { font-size: 3.5rem; font-weight: bold; color: #333; min-height: 4.5rem; word-break: break-all; }
 
         #ranking-list { text-align: left; margin: 30px 0; min-height: 200px; border-top: 2px dashed #eee; border-bottom: 2px dashed #eee; padding: 20px 0; }
         .rank-item { padding: 20px 15px; border-bottom: 1px solid #f9f9f9; font-size: 1.8rem; color: #999; display: flex; justify-content: space-between; align-items: center; transition: all 0.3s; }
-        .rank-item.active { background: #fff0f2; color: #e05275; font-weight: bold; border-radius: 10px; transform: scale(1.02); }
+        .rank-item:last-child { border-bottom: none; }
+        .rank-item.active { background: #fff0f2; color: #e05275; font-weight: bold; border-radius: 10px; transform: scale(1.02); box-shadow: 0 4px 15px rgba(224,82,117,0.1); }
         .rank-item.ng { text-decoration: line-through; color: #ccc; }
         .rank-badge { font-weight: bold; margin-right: 25px; display: inline-block; width: 100px; }
+        
         .status-text { font-size: 1.4rem; font-weight: bold; }
         .status-lamp { display: inline-block; width: 15px; height: 15px; border-radius: 50%; background: #ccc; margin-right: 10px; vertical-align: middle; }
         .audio-status { margin-top: 20px; font-weight: bold; color: #3498db; }
@@ -36,6 +41,9 @@
     <div class="container">
         <h1>早押し順位</h1>
         <div class="audio-status" id="audio-status"></div>
+
+        <!-- カウントダウンタイマー -->
+        <div id="countdown-timer">残り 10 秒</div>
 
         <div id="live-answer-box">
             <div id="live-answer-label">解答入力中...</div>
@@ -71,8 +79,8 @@
         
         let musicPlayer = new Audio(); let sabiPlayer = new Audio();
         let audioData = { intros: [], sabis: [] }; let currentEventName = ""; let lastJudgment = null;
-        let enableSound = true;
-        let currentAnswerMode = 'oral';
+        let enableSound = true; let currentAnswerMode = 'oral';
+        let timerInterval = null;
 
         document.getElementById('mute-toggle').addEventListener('change', (e) => enableSound = e.target.checked);
 
@@ -81,9 +89,7 @@
             document.getElementById('unlock-overlay').style.display = 'none';
         });
 
-        ref.child('settings/answer_mode').on('value', snap => {
-            currentAnswerMode = snap.val() || 'oral';
-        });
+        ref.child('settings/answer_mode').on('value', snap => { currentAnswerMode = snap.val() || 'oral'; });
 
         ref.on('value', (snapshot) => {
             const data = snapshot.val() || {}; const eventName = data.current_event || "";
@@ -121,22 +127,34 @@
             else if (action === 'play_sabi') { musicPlayer.pause(); if (audioData.sabis[idx]) { if (sabiPlayer.src !== audioData.sabis[idx]) { sabiPlayer.src = audioData.sabis[idx]; sabiPlayer.currentTime = 0; } if (sabiPlayer.paused) sabiPlayer.play().catch(e=>{}); } } 
             else if (action === 'pause_sabi') { sabiPlayer.pause(); } 
             else if (action === 'stop_all') { musicPlayer.pause(); sabiPlayer.pause(); } 
-            else if (action === 'skip_back') { if (!musicPlayer.paused) musicPlayer.currentTime = Math.max(0, musicPlayer.currentTime - 10); else if (!sabiPlayer.paused) sabiPlayer.currentTime = Math.max(0, sabiPlayer.currentTime - 10); } 
-            else if (action === 'skip_forward') { if (!musicPlayer.paused) musicPlayer.currentTime = Math.min(musicPlayer.duration, musicPlayer.currentTime + 10); else if (!sabiPlayer.paused) sabiPlayer.currentTime = Math.min(sabiPlayer.duration, sabiPlayer.currentTime + 10); }
         });
 
         ref.on('value', (snapshot) => {
             const data = snapshot.val() || {};
             const queue = data.queue || []; const idx = data.current_index || 0; const judgment = data.judgment;
             const currentAnswer = data.current_answer || "";
+            const deadline = data.deadline;
             
+            // カウントダウン表示
+            clearInterval(timerInterval);
+            const timerDiv = document.getElementById('countdown-timer');
+            if (idx < queue.length && !judgment && deadline) {
+                timerDiv.style.display = 'block';
+                timerInterval = setInterval(() => {
+                    const remain = Math.max(0, deadline - Date.now());
+                    const sec = Math.ceil(remain / 1000);
+                    timerDiv.innerText = `残り ${sec} 秒`;
+                    timerDiv.style.color = sec <= 3 ? '#e74c3c' : '#555';
+                    if (remain <= 0) { clearInterval(timerInterval); timerDiv.innerText = "時間切れ！"; }
+                }, 100);
+            } else {
+                timerDiv.style.display = 'none';
+            }
+
             const liveBox = document.getElementById('live-answer-box');
             if (currentAnswerMode === 'text' && idx < queue.length) {
-                liveBox.style.display = 'block';
-                document.getElementById('live-answer-text').innerText = currentAnswer;
-            } else {
-                liveBox.style.display = 'none';
-            }
+                liveBox.style.display = 'block'; document.getElementById('live-answer-text').innerText = currentAnswer;
+            } else { liveBox.style.display = 'none'; }
 
             const listDiv = document.getElementById('ranking-list');
             if (queue.length === 0) { listDiv.innerHTML = '<div style="text-align:center; color:#ccc; line-height: 200px; font-size: 1.5rem;">待機中</div>'; } 
