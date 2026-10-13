@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>音源アップローダー（個別登録版）</title>
+    <title>音源アップローダー（動画・自動抽出対応版）</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { font-family: -apple-system, sans-serif; text-align: center; padding: 20px; background: #34495e; color: #ecf0f1; }
@@ -12,10 +12,10 @@
         .setup-area { background: #34495e; padding: 20px; border-radius: 8px; text-align: left; margin-bottom: 20px; }
         .area-title { font-size: 1.1rem; font-weight: bold; color: #f1c40f; margin-top: 0; border-bottom: 1px solid #4f5f6f; padding-bottom: 8px; margin-bottom: 15px; }
         
-        .list-item { background: #1a252f; padding: 12px; margin-bottom: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;}
-        .list-name { font-weight: bold; color: #ecf0f1; flex-grow: 1; margin-right: 10px; word-break: break-all; margin-bottom: 5px; }
-        .list-actions { display: flex; gap: 5px; }
-        .list-actions button { width: auto; padding: 6px 12px; font-size: 0.8rem; margin: 0; border-radius: 4px; }
+        .list-item { background: #1a252f; padding: 12px; margin-bottom: 10px; border-radius: 6px; display: flex; flex-direction: column; text-align: left; }
+        .list-name { font-weight: bold; color: #ecf0f1; margin-bottom: 8px; font-size: 1.1rem; }
+        .list-actions { display: flex; gap: 5px; flex-wrap: wrap; }
+        .list-actions button { width: auto; padding: 6px 10px; font-size: 0.8rem; margin: 0; border-radius: 4px; }
         
         input[type="text"] { font-size: 1.1rem; padding: 12px; width: calc(100% - 24px); margin-bottom: 15px; border: 1px solid #7f8c8d; border-radius: 6px; background: #2c3e50; color: white; outline: none; }
         button { font-size: 1rem; padding: 12px; margin: 5px 0; width: 100%; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; color: white; }
@@ -24,8 +24,17 @@
     </style>
 </head>
 <body>
+    <!-- 曲の個別削除用モーダル -->
+    <div id="edit-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; justify-content:center; align-items:center;">
+        <div style="background:#2c3e50; padding:20px; border-radius:12px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto; text-align:left;">
+            <h2 id="edit-modal-title" style="color:#f1c40f; margin-top:0; font-size:1.2rem;">曲の編集</h2>
+            <div id="edit-modal-list"></div>
+            <button onclick="document.getElementById('edit-modal').style.display='none'" style="background:#7f8c8d; margin-top:15px; width:100%;">閉じる</button>
+        </div>
+    </div>
+
     <div class="container">
-        <h1>音源データ管理・アップローダー</h1>
+        <h1>音源データ自動抽出アップローダー</h1>
 
         <div class="setup-area">
             <h2 class="area-title">保存済みのリスト管理</h2>
@@ -41,7 +50,7 @@
 
         <div class="setup-area" style="background:#293a4c;">
             <h2 class="area-title" style="color:#2ecc71;">2. 1曲ずつ登録する</h2>
-            <p style="font-size:0.85rem; color:#bdc3c7; margin-bottom:5px;">※動画も選べますが、長いとエラーになるため10〜20秒にカットしたものを推奨します。</p>
+            <p style="font-size:0.85rem; color:#f1c40f; font-weight:bold; margin-bottom:5px;">※動画（画面録画等）をそのまま選んでOKです！<br>システムが自動で音声を抽出し、最初の15秒間だけを軽くして保存します。</p>
             
             <input type="text" id="track-title" placeholder="曲名（例：マリーゴールド）" style="margin-top:10px;">
             
@@ -52,10 +61,10 @@
             
             <div id="file-info" style="font-size:0.85rem; color:#bdc3c7; margin-bottom:15px; background:#1a252f; padding:8px; border-radius:4px;">イントロ: 未選択 <br> サビ: 未選択</div>
             
-            <input type="file" id="intro-file" accept="audio/*,video/*,.mp3,.m4a,.mp4" style="display:none">
-            <input type="file" id="sabi-file" accept="audio/*,video/*,.mp3,.m4a,.mp4" style="display:none">
+            <input type="file" id="intro-file" accept="audio/*,video/*" style="display:none">
+            <input type="file" id="sabi-file" accept="audio/*,video/*" style="display:none">
             
-            <button onclick="addTrack()" style="background:#2ecc71;">＋ この曲をリストに追加</button>
+            <button onclick="addTrack()" style="background:#2ecc71;">＋ この曲を送信リストに追加</button>
         </div>
 
         <div class="setup-area">
@@ -72,6 +81,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script>
+        // 設定データ
         const firebaseConfig = {
             apiKey: "AIzaSyDzIx3CN5EnlznHgXMDNDb5Bulk9lpQpBw",
             authDomain: "mmym-intr-hyosbt.firebaseapp.com",
@@ -89,6 +99,7 @@
         let introFile = null;
         let sabiFile = null;
 
+        // 保存済みリストの表示
         ref.child('saved_playlists').on('value', (snap) => {
             const data = snap.val() || {}; const container = document.getElementById('playlist-container'); container.innerHTML = '';
             const keys = Object.keys(data);
@@ -99,15 +110,52 @@
                         <div class="list-name">${key} <span style="font-size:0.8rem;color:#95a5a6;">(${data[key].length}曲)</span></div>
                         <div class="list-actions">
                             <button style="background:#3498db;" onclick="prepareAppend('${key}')">追加</button>
-                            <button style="background:#95a5a6;" onclick="renamePlaylist('${key}')">名前変更</button>
+                            <button style="background:#f39c12;" onclick="editPlaylist('${key}')">曲を編集</button>
+                            <button style="background:#95a5a6;" onclick="renamePlaylist('${key}')">名前</button>
                             <button style="background:#e74c3c;" onclick="deletePlaylist('${key}')">削除</button>
                         </div>
                     </div>`;
             });
         });
 
+        // リスト内の個別編集
+        window.editPlaylist = async function(name) {
+            document.getElementById('edit-modal').style.display = 'flex';
+            document.getElementById('edit-modal-title').innerText = `「${name}」の曲一覧`;
+            document.getElementById('edit-modal-list').innerHTML = '<p style="color:#ccc;">読込中...</p>';
+            const pSnap = await ref.child('saved_playlists').child(name).once('value');
+            const playlist = pSnap.val() || [];
+            if (playlist.length === 0) { document.getElementById('edit-modal-list').innerHTML = '<p style="color:#ccc;">曲がありません。</p>'; return; }
+            
+            let html = '';
+            playlist.forEach((track, i) => {
+                html += `
+                    <div style="background:#34495e; padding:10px; margin-bottom:8px; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+                        <div style="color:white; font-size:0.9rem; word-break: break-all; margin-right:10px;">${i+1}. ${track.introName}</div>
+                        <button onclick="deleteTrackFromSaved('${name}', ${i})" style="width:auto; padding:6px 12px; margin:0; background:#e74c3c; font-size:0.8rem; font-weight:bold;">消す</button>
+                    </div>`;
+            });
+            document.getElementById('edit-modal-list').innerHTML = html;
+        }
+
+        window.deleteTrackFromSaved = async function(eventName, trackIndex) {
+            if (!confirm(`この曲をリストから削除しますか？`)) return;
+            document.getElementById('edit-modal-list').innerHTML = '<p style="color:#ccc;">削除処理中...</p>';
+            try {
+                const pSnap = await ref.child('saved_playlists').child(eventName).once('value');
+                const aSnap = await ref.child('saved_audio').child(eventName).once('value');
+                let pList = pSnap.val() || []; let audioData = aSnap.val() || {intros:[], sabis:[]};
+                pList.splice(trackIndex, 1);
+                if (audioData.intros) audioData.intros.splice(trackIndex, 1);
+                if (audioData.sabis) audioData.sabis.splice(trackIndex, 1);
+                await ref.child('saved_playlists').child(eventName).set(pList);
+                await ref.child('saved_audio').child(eventName).set(audioData);
+                editPlaylist(eventName);
+            } catch(e) { alert("エラー: " + e.message); editPlaylist(eventName); }
+        }
+
         window.deletePlaylist = async function(name) {
-            if (confirm(`「${name}」を削除しますか？`)) {
+            if (confirm(`「${name}」をリストごと削除しますか？`)) {
                 await ref.child('saved_playlists').child(name).remove(); await ref.child('saved_audio').child(name).remove();
                 if(document.getElementById('event-name').value === name) resetForm();
             }
@@ -131,7 +179,7 @@
             document.getElementById('form-title').innerText = `「${name}」に曲を追加`; document.getElementById('form-title').style.color = "#3498db";
             document.getElementById('event-name').value = name; document.getElementById('event-name').readOnly = true;
             document.getElementById('edit-mode').value = 'append'; document.getElementById('btn-cancel').style.display = 'block';
-            alert(`下から曲を作って「リストに追加」してください。最後に送信を押すと継ぎ足されます。`);
+            alert(`下から曲を作って「送信リストに追加」してください。最後に送信を押すと継ぎ足されます。`);
         }
 
         window.resetForm = function() {
@@ -142,8 +190,25 @@
             document.getElementById('status').style.display = 'none';
         }
 
-        document.getElementById('intro-file').addEventListener('change', e => { introFile = e.target.files[0]; updateFileInfo(); });
-        document.getElementById('sabi-file').addEventListener('change', e => { sabiFile = e.target.files[0]; updateFileInfo(); });
+        // ファイル容量チェック（50MBまでに緩和・動画もOK）
+        function checkFileSize(file) {
+            if (!file) return true;
+            if (file.size > 50 * 1024 * 1024) {
+                alert(`容量エラー：${file.name}\n50MB以上のファイルは大きすぎます。もう少し短い動画を選んでください。`);
+                return false;
+            }
+            return true;
+        }
+
+        document.getElementById('intro-file').addEventListener('change', e => { 
+            const f = e.target.files[0];
+            if (checkFileSize(f)) { introFile = f; updateFileInfo(); } else { e.target.value = ''; introFile = null; updateFileInfo(); }
+        });
+        document.getElementById('sabi-file').addEventListener('change', e => { 
+            const f = e.target.files[0];
+            if (checkFileSize(f)) { sabiFile = f; updateFileInfo(); } else { e.target.value = ''; sabiFile = null; updateFileInfo(); }
+        });
+        
         function updateFileInfo() {
             document.getElementById('file-info').innerHTML = `イントロ: ${introFile ? introFile.name : "<span style='color:#e74c3c'>未選択</span>"} <br> サビ: ${sabiFile ? sabiFile.name : "未選択"}`;
         }
@@ -166,7 +231,7 @@
             pendingTracks.forEach((t, i) => {
                 html += `<div style="background:#1a252f; padding:8px; margin-bottom:5px; border-radius:4px; display:flex; justify-content:space-between; align-items:center;">
                     <div style="text-align:left;">${i+1}. ${t.title} <span style="font-size:0.7rem;color:#7f8c8d;">[${t.sabiFile ? 'サビ有' : 'サビ無'}]</span></div>
-                    <button onclick="removeTrack(${i})" style="width:auto; padding:4px 10px; margin:0; background:#e74c3c; border-radius:4px; font-size:0.8rem;">削除</button>
+                    <button onclick="removeTrack(${i})" style="width:auto; padding:4px 10px; margin:0; background:#e74c3c; border-radius:4px; font-size:0.8rem;">外す</button>
                 </div>`;
             });
             listDiv.innerHTML = html; document.getElementById('btn-upload').style.display = 'block';
@@ -174,16 +239,70 @@
 
         window.removeTrack = function(i) { pendingTracks.splice(i, 1); renderPendingList(); }
 
-        const fileToBase64 = (file) => new Promise((resolve, reject) => {
-            const reader = new FileReader(); reader.readAsDataURL(file);
-            reader.onload = () => resolve(reader.result); reader.onerror = e => reject(e);
-        });
+        // ★★★ 動画から音声を抽出し、最初の15秒を軽量WAVデータに変換する魔法の関数 ★★★
+        async function extractAndCompressAudio(file) {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const arrayBuffer = await file.arrayBuffer();
+            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            
+            // 最初の15秒間にカット
+            const maxSeconds = 15;
+            const duration = Math.min(audioBuffer.duration, maxSeconds);
+            const sampleRate = 22050; // 容量を極限まで軽くするためのレート
+            
+            const offlineCtx = new OfflineAudioContext(1, sampleRate * duration, sampleRate);
+            const source = offlineCtx.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(offlineCtx.destination);
+            source.start(0);
+            
+            const renderedBuffer = await offlineCtx.startRendering();
+            
+            // WAVファイル(Blob)に変換
+            const wavBlob = bufferToWav(renderedBuffer);
+            
+            // BlobをBase64文字列に変換して返す
+            return await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(wavBlob);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = e => reject(e);
+            });
+        }
 
+        function bufferToWav(abuffer) {
+            const numOfChan = abuffer.numberOfChannels, length = abuffer.length * numOfChan * 2 + 44,
+                  buffer = new ArrayBuffer(length), view = new DataView(buffer), channels = [], sampleRate = abuffer.sampleRate;
+            let offset = 0, pos = 0;
+
+            function setUint16(data) { view.setUint16(offset, data, true); offset += 2; }
+            function setUint32(data) { view.setUint32(offset, data, true); offset += 4; }
+
+            setUint32(0x46464952); setUint32(length - 8); setUint32(0x45564157);
+            setUint32(0x20746d66); setUint32(16); setUint16(1); setUint16(numOfChan);
+            setUint32(sampleRate); setUint32(sampleRate * 2 * numOfChan); setUint16(numOfChan * 2); setUint16(16);
+            setUint32(0x61746164); setUint32(length - pos - 4);
+
+            for(let i = 0; i < abuffer.numberOfChannels; i++) channels.push(abuffer.getChannelData(i));
+            while(pos < abuffer.length) {
+                for(let i = 0; i < numOfChan; i++) {
+                    let sample = Math.max(-1, Math.min(1, channels[i][pos]));
+                    sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767)|0;
+                    view.setInt16(offset, sample, true);
+                }
+                pos++;
+            }
+            return new Blob([buffer], {type: "audio/wav"});
+        }
+
+        // --- アップロード処理 ---
         document.getElementById('btn-upload').addEventListener('click', async () => {
             const eventName = document.getElementById('event-name').value.trim().replace(/[.#$[\]]/g, "_");
             if (!eventName) return alert("リストの名前を入力してください！");
             const mode = document.getElementById('edit-mode').value;
-            const statusDiv = document.getElementById('status'); statusDiv.innerText = "変換中...画面を閉じないでください"; statusDiv.style.display = 'block';
+            const statusDiv = document.getElementById('status'); 
+            statusDiv.innerHTML = "音声自動抽出・圧縮中...<br>画面を閉じないでください"; 
+            statusDiv.style.display = 'block';
 
             try {
                 let startIndex = 0; let existingPlaylist = [];
@@ -194,25 +313,29 @@
 
                 for (let i = 0; i < pendingTracks.length; i++) {
                     const targetIdx = startIndex + i; const t = pendingTracks[i];
-                    statusDiv.innerText = `[${i + 1}/${pendingTracks.length}] ${t.title} を変換中...`;
+                    statusDiv.innerHTML = `[${i + 1}/${pendingTracks.length}] ${t.title}<br>音声を抽出して軽くしています...`;
                     
-                    const introBase64 = await fileToBase64(t.introFile);
+                    // ★ 動画から音声を抽出し、15秒にカットして保存
+                    const introBase64 = await extractAndCompressAudio(t.introFile);
                     await ref.child('saved_audio').child(eventName).child('intros').child(targetIdx).set(introBase64);
                     
                     let sabiBase64 = "";
-                    if (t.sabiFile) { sabiBase64 = await fileToBase64(t.sabiFile); }
+                    if (t.sabiFile) { 
+                        statusDiv.innerHTML = `[${i + 1}/${pendingTracks.length}] ${t.title} (サビ)<br>音声を抽出して軽くしています...`; 
+                        sabiBase64 = await extractAndCompressAudio(t.sabiFile); 
+                    }
                     await ref.child('saved_audio').child(eventName).child('sabis').child(targetIdx).set(sabiBase64);
                     
                     existingPlaylist.push({ introName: t.title, sabiName: t.sabiFile ? `${t.title}(サビ)` : "" });
                 }
 
-                statusDiv.innerText = "データベースに情報を送信中...";
+                statusDiv.innerText = "データベースに情報を同期中...";
                 await ref.child('saved_playlists').child(eventName).set(existingPlaylist);
                 
                 statusDiv.innerText = mode === 'append' ? `完了！「${eventName}」に追加されました。` : `完了！新規リスト「${eventName}」が保存されました。`;
                 setTimeout(() => { resetForm(); }, 3000);
 
-            } catch (e) { alert("送信エラー: 動画ファイル等が大きすぎる可能性があります。\n" + e.message); statusDiv.innerText = "エラー発生"; }
+            } catch (e) { alert("送信エラー: " + e.message); statusDiv.innerText = "エラー発生"; }
         });
     </script>
 </body>
