@@ -65,7 +65,6 @@
                 <div id="live-answer-text"></div>
             </div>
 
-            <!-- カウントダウンタイマー -->
             <div id="countdown-timer">残り 10 秒</div>
 
             <button id="btn" disabled>準備中</button>
@@ -79,6 +78,14 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script>
+        if (navigator.userAgent.includes("Line") || navigator.userAgent.includes("LINE")) {
+            if (!location.search.includes("openExternalBrowser=1")) {
+                location.href = location.href + (location.href.includes("?") ? "&" : "?") + "openExternalBrowser=1";
+            }
+            document.getElementById('line-warning').style.display = 'block';
+            document.getElementById('unlock-overlay').style.display = 'none';
+        }
+
         const MY_ROLE = 'player';
         const firebaseConfig = {
             apiKey: "AIzaSyDzIx3CN5EnlznHgXMDNDb5Bulk9lpQpBw",
@@ -98,11 +105,6 @@
         let audioData = { intros: [], sabis: [] }; let currentEventName = ""; let lastJudgment = null;
         let audioTarget = 'monitor'; let currentAnswerMode = 'oral'; let myName = "";
         let timerInterval = null;
-
-        if (navigator.userAgent.includes("Line") || navigator.userAgent.includes("LINE")) {
-            document.getElementById('line-warning').style.display = 'block';
-            document.getElementById('unlock-overlay').style.display = 'none';
-        }
 
         document.getElementById('btn-unlock').addEventListener('click', () => {
             if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -178,8 +180,8 @@
                     const remain = Math.max(0, deadline - Date.now());
                     const sec = Math.ceil(remain / 1000);
                     timerDiv.innerText = `残り ${sec} 秒`;
-                    timerDiv.style.color = sec <= 3 ? '#e74c3c' : '#555';
-                    if (remain <= 0) { clearInterval(timerInterval); timerDiv.innerText = "時間切れ！"; }
+                    timerDiv.style.color = sec <= 3 ? '#e74c3c' : '#bdc3c7';
+                    if (remain <= 0) { clearInterval(timerInterval); timerDiv.innerText = "時間切れ"; }
                 }, 100);
             } else {
                 timerDiv.style.display = 'none';
