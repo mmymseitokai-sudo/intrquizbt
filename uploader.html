@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>音源アップローダー（動画・自動抽出対応版）</title>
+    <title>音源アップローダー</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { font-family: -apple-system, sans-serif; text-align: center; padding: 20px; background: #34495e; color: #ecf0f1; margin: 0; }
@@ -55,7 +55,7 @@
             <h2 class="area-title" style="color:#2ecc71;">2. 1曲ずつ登録する</h2>
             <p style="font-size:0.85rem; color:#f1c40f; font-weight:bold; margin-bottom:5px;">
                 ※動画（画面録画等）をそのまま選んでOKです！<br>
-                <span style="color:#e74c3c;">※iPhoneの場合、あらかじめ「写真アプリ」で動画の長さを「15秒以内」にトリミングしておくと確実です。</span>
+                <span style="color:#e74c3c;">※動画の場合は裏で音だけを抽出するため、送信時に1曲あたり最長15秒の待ち時間が発生します。</span>
             </p>
             
             <input type="text" id="track-title" placeholder="曲名（例：マリーゴールド）" style="margin-top:10px;">
@@ -83,7 +83,6 @@
         
         <div id="status"></div>
 
-        <!-- 最終兵器：データベース強制リセットボタン -->
         <button onclick="forceResetDB()" style="background:transparent; border:1px solid #e74c3c; color:#e74c3c; font-size:0.8rem; margin-top:30px;">⚠️ データベースの全保存リストを強制消去する</button>
     </div>
 
@@ -106,8 +105,8 @@
             measurementId: "G-2MNRCP27T9"
         };
         try { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); } catch (e) {}
-
         const db = firebase.database(); const ref = db.ref('quiz_room');
+
         let pendingTracks = []; let introFile = null; let sabiFile = null;
 
         ref.child('saved_playlists').on('value', (snap) => {
@@ -134,14 +133,14 @@
                 });
                 container.innerHTML = html;
             } catch (error) {
-                document.getElementById('playlist-container').innerHTML = '<p style="color:#e74c3c;">リストの読み込みに失敗しました。一番下の「強制消去」ボタンを押してリセットしてください。</p>';
+                document.getElementById('playlist-container').innerHTML = '<p style="color:#e74c3c;">読み込みに失敗しました。一番下の「強制消去」ボタンを押してリセットしてください。</p>';
             }
         });
 
         window.forceResetDB = async function() {
-            if (confirm("【警告】保存されているすべてのプレイリストと音源データを強制的に消去します。本当によろしいですか？")) {
+            if (confirm("【警告】保存されているすべてのデータを強制的に消去しますか？")) {
                 await ref.child('saved_playlists').remove(); await ref.child('saved_audio').remove();
-                alert("強制リセットが完了しました。ページを再読み込みします。"); location.reload();
+                alert("リセットが完了しました。"); location.reload();
             }
         }
 
@@ -158,7 +157,7 @@
         }
 
         window.deleteTrackFromSaved = async function(eventName, trackIndex) {
-            if (!confirm(`この曲をリストから削除しますか？`)) return; document.getElementById('edit-modal-list').innerHTML = '<p style="color:#ccc;">削除処理中...</p>';
+            if (!confirm(`この曲を削除しますか？`)) return; document.getElementById('edit-modal-list').innerHTML = '<p style="color:#ccc;">削除処理中...</p>';
             try {
                 const pSnap = await ref.child('saved_playlists').child(eventName).once('value'); const aSnap = await ref.child('saved_audio').child(eventName).once('value');
                 let pList = pSnap.val() || []; let audioData = aSnap.val() || {intros:[], sabis:[]};
@@ -217,6 +216,7 @@
         const fileToBase64 = (file) => new Promise((resolve, reject) => {
             const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = () => resolve(reader.result); reader.onerror = e => reject(e);
         });
+        
         function bufferToWav(abuffer) {
             const numOfChan = abuffer.numberOfChannels, length = abuffer.length * numOfChan * 2 + 44, buffer = new ArrayBuffer(length), view = new DataView(buffer), channels = [], sampleRate = abuffer.sampleRate; let offset = 0, pos = 0;
             function setUint16(data) { view.setUint16(offset, data, true); offset += 2; } function setUint32(data) { view.setUint32(offset, data, true); offset += 4; }
@@ -227,20 +227,19 @@
             return new Blob([buffer], {type: "audio/wav"});
         }
 
-        // ★★★ 動画から音声を「確実・高速」に抽出する最新のプログラム ★★★
+        // ★★★ iPhone動画エラー回避の最終奥義 ★★★
         async function extractAndCompressAudio(file) {
             try {
+                // 1. まずは高速変換（MP3など）を試す
                 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 if (audioCtx.state === 'suspended') await audioCtx.resume();
-
-                // ファイル形式に関わらず、ブラウザの強力な音声デコーダー（decodeAudioData）に一瞬で分解させる
+                
                 const arrayBuffer = await file.arrayBuffer();
                 const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
                 
-                // 動画の長さが何分あろうと、最初の15秒間だけを切り取る
                 const maxSeconds = 15;
                 const duration = Math.min(audioBuffer.duration, maxSeconds);
-                const sampleRate = 22050; // 容量を軽くするための設定
+                const sampleRate = 22050; 
                 
                 const offlineCtx = new OfflineAudioContext(1, sampleRate * duration, sampleRate);
                 const source = offlineCtx.createBufferSource();
@@ -250,17 +249,71 @@
                 
                 const renderedBuffer = await offlineCtx.startRendering();
                 const wavBlob = bufferToWav(renderedBuffer);
-                
-                // 切り取った15秒の音声をWAVとして返す
                 return await fileToBase64(new File([wavBlob], "audio.wav", {type: "audio/wav"}));
                 
-            } catch (e) {
-                // 万が一、ブラウザが対応していない動画形式だった場合の最終手段（そのまま送る）
-                if (file.size <= 6 * 1024 * 1024) {
-                    return await fileToBase64(file);
-                } else {
-                    throw new Error("ファイルの変換に失敗しました。ファイルが大きすぎます。\niPhoneの「写真アプリ」で、動画を『10秒以内』に短くトリミングしてから選び直してください。");
-                }
+            } catch (err1) {
+                // 2. 失敗した場合（iPhoneの動画等）、裏技「微小音量録音」で抽出する
+                return await new Promise((resolve, reject) => {
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const video = document.createElement('video');
+                    
+                    // DOMに追加してiOSの省エネ停止を防ぐ
+                    video.style.position = 'fixed'; video.style.opacity = '0.01';
+                    video.playsInline = true; video.crossOrigin = "anonymous";
+                    document.body.appendChild(video);
+
+                    video.src = URL.createObjectURL(file);
+                    
+                    video.onloadedmetadata = () => {
+                        const playDuration = Math.min(video.duration, 15);
+                        
+                        try {
+                            const source = audioCtx.createMediaElementSource(video);
+                            const dest = audioCtx.createMediaStreamDestination();
+                            source.connect(dest);
+                            
+                            // ★iPhoneを騙すポイント★ スピーカーにも繋ぐが、音量は0.001にして聞こえなくする
+                            const gainNode = audioCtx.createGain();
+                            gainNode.gain.value = 0.001;
+                            source.connect(gainNode);
+                            gainNode.connect(audioCtx.destination);
+                            
+                            let mimeType = 'audio/mp4'; 
+                            if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'audio/webm';
+                            let recorder; 
+                            try { recorder = new MediaRecorder(dest.stream, { mimeType: mimeType }); } 
+                            catch (e) { recorder = new MediaRecorder(dest.stream); }
+                            
+                            const chunks = []; 
+                            recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+                            recorder.onstop = () => {
+                                const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/mp4' });
+                                document.body.removeChild(video);
+                                fileToBase64(blob).then(resolve).catch(reject);
+                            };
+                            
+                            recorder.start();
+                            video.play().then(() => {
+                                // 動画の長さ分待ってから停止（最大15秒）
+                                setTimeout(() => { recorder.stop(); video.pause(); }, playDuration * 1000 + 500);
+                            }).catch(e => {
+                                document.body.removeChild(video);
+                                fallbackRawBase64(file, resolve, reject);
+                            });
+                        } catch (e) { document.body.removeChild(video); fallbackRawBase64(file, resolve, reject); }
+                    };
+                    video.onerror = () => { document.body.removeChild(video); fallbackRawBase64(file, resolve, reject); };
+                });
+            }
+        }
+
+        // 3. 全て失敗した時の最終手段
+        function fallbackRawBase64(file, resolve, reject) {
+            // 画質向上を考慮し、上限を8MBに緩和
+            if (file.size <= 8 * 1024 * 1024) {
+                fileToBase64(file).then(resolve).catch(reject);
+            } else {
+                reject(new Error("iPhoneの制限により変換できませんでした。ファイルが大きすぎます。\n恐れ入りますが、「写真アプリ」で動画の長さを『10秒以内』に短くトリミングしてから選び直してください。"));
             }
         }
 
@@ -281,29 +334,16 @@
 
                 for (let i = 0; i < pendingTracks.length; i++) {
                     const targetIdx = startIndex + i; const t = pendingTracks[i];
-                    statusDiv.innerHTML = `[${i + 1}/${pendingTracks.length}] ${t.title}<br>動画/音声を圧縮して送信中...`;
+                    statusDiv.innerHTML = `[${i + 1}/${pendingTracks.length}] ${t.title}<br>動画から音声を抽出中...<br><span style="color:#e74c3c;font-size:0.8rem;">（iPhoneの場合、曲の秒数だけ待ち時間が発生します）</span>`;
                     
                     const introBase64 = await extractAndCompressAudio(t.introFile);
                     await ref.child('saved_audio').child(eventName).child('intros').child(targetIdx).set(introBase64);
                     
                     let sabiBase64 = "";
                     if (t.sabiFile) { 
-                        statusDiv.innerHTML = `[${i + 1}/${pendingTracks.length}] ${t.title} (サビ)<br>動画/音声を圧縮して送信中...`; 
+                        statusDiv.innerHTML = `[${i + 1}/${pendingTracks.length}] ${t.title} (サビ)<br>動画から音声を抽出中...`; 
                         sabiBase64 = await extractAndCompressAudio(t.sabiFile); 
                     }
                     await ref.child('saved_audio').child(eventName).child('sabis').child(targetIdx).set(sabiBase64);
-                    
                     existingPlaylist.push({ introName: t.title, sabiName: t.sabiFile ? `${t.title}(サビ)` : "" });
                 }
-
-                statusDiv.innerText = "データベースに情報を同期中...";
-                await ref.child('saved_playlists').child(eventName).set(existingPlaylist);
-                
-                statusDiv.innerText = mode === 'append' ? `完了！「${eventName}」に追加されました。` : `完了！新規リスト「${eventName}」が保存されました。`;
-                setTimeout(() => { resetForm(); }, 3000);
-
-            } catch (e) { alert(e.message); statusDiv.innerText = "エラー発生"; }
-        });
-    </script>
-</body>
-</html>
