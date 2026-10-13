@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>音源アップローダー（動画・自動抽出対応版）</title>
+    <title>音源アップローダー（動画録音抽出版）</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { font-family: -apple-system, sans-serif; text-align: center; padding: 20px; background: #34495e; color: #ecf0f1; margin: 0; }
@@ -17,18 +17,9 @@
         input[type="text"] { font-size: 1.1rem; padding: 12px; width: calc(100% - 24px); margin-bottom: 15px; border: 1px solid #7f8c8d; border-radius: 6px; background: #2c3e50; color: white; outline: none; }
         button { font-size: 1rem; padding: 12px; margin: 5px 0; width: 100%; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; color: white; }
         #status { font-weight: bold; margin-top: 15px; color: #f1c40f; display: none; background: #1a252f; padding: 10px; border-radius: 6px; font-size: 0.9rem; line-height: 1.5; }
-        #line-warning { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #e74c3c; color: white; z-index: 10000; padding: 40px 20px; box-sizing: border-box; }
-        #line-warning h2 { color: white; font-size: 1.5rem; margin-bottom: 20px; }
-        #line-warning p { font-size: 1.1rem; line-height: 1.8; }
     </style>
 </head>
 <body>
-    <div id="line-warning">
-        <h2>LINEのブラウザでは<br>ファイルが選択できません</h2>
-        <p>画面右下のメニューボタンから<br><strong>「Safariで開く」</strong><br>を選んでから操作してください。</p>
-    </div>
-
-    <!-- 曲の個別編集用モーダル -->
     <div id="edit-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; justify-content:center; align-items:center;">
         <div style="background:#2c3e50; padding:20px; border-radius:12px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto; text-align:left;">
             <h2 id="edit-modal-title" style="color:#f1c40f; margin-top:0; font-size:1.2rem;">曲の編集</h2>
@@ -55,8 +46,8 @@
         <div class="setup-area" style="background:#293a4c;">
             <h2 class="area-title" style="color:#2ecc71;">2. 1曲ずつ登録する</h2>
             <p style="font-size:0.85rem; color:#f1c40f; font-weight:bold; margin-bottom:5px;">
-                ※動画（画面録画等）をそのまま選んでOKです！<br>
-                <span style="color:#e74c3c;">※iPhoneの場合、あらかじめ「写真アプリ」で動画の長さを「10秒以内」にトリミングしておくと確実です。</span>
+                動画（画面録画等）をそのまま選んでOKです！<br>
+                <span style="color:#e74c3c;">※動画の場合は裏で音だけを抽出するため、送信時に1曲あたり数秒〜15秒の待ち時間が発生します。</span>
             </p>
             
             <input type="text" id="track-title" placeholder="曲名（例：マリーゴールド）" style="margin-top:10px;">
@@ -88,13 +79,6 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script>
-        if (navigator.userAgent.includes("Line") || navigator.userAgent.includes("LINE")) {
-            if (!location.search.includes("openExternalBrowser=1")) {
-                location.href = location.href + (location.href.includes("?") ? "&" : "?") + "openExternalBrowser=1";
-            }
-            document.getElementById('line-warning').style.display = 'block';
-        }
-
         const firebaseConfig = {
             apiKey: "AIzaSyDzIx3CN5EnlznHgXMDNDb5Bulk9lpQpBw",
             authDomain: "mmym-intr-hyosbt.firebaseapp.com",
@@ -108,24 +92,20 @@
         try { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); } catch (e) {}
         const db = firebase.database(); const ref = db.ref('quiz_room');
 
-        let pendingTracks = [];
-        let introFile = null;
-        let sabiFile = null;
+        let pendingTracks = []; let introFile = null; let sabiFile = null;
 
-        // ★壊れたデータでもフリーズしない安全な表示処理
         ref.child('saved_playlists').on('value', (snap) => {
             const data = snap.val() || {}; const container = document.getElementById('playlist-container'); container.innerHTML = '';
             const keys = Object.keys(data);
             if(keys.length === 0) { container.innerHTML = '<p style="font-size:0.85rem; color:#95a5a6;">保存されているリストはありません。</p>'; return; }
             keys.forEach(key => {
-                const playlist = data[key];
-                const count = Array.isArray(playlist) ? playlist.length : "エラー"; // 壊れている場合はエラーと表示
+                const playlist = data[key]; const count = Array.isArray(playlist) ? playlist.length : "エラー";
                 container.innerHTML += `
                     <div class="list-item">
                         <div class="list-name">${key} <span style="font-size:0.8rem;color:#95a5a6;">(${count}曲)</span></div>
                         <div class="list-actions">
                             <button style="background:#3498db;" onclick="prepareAppend('${key}')">追加</button>
-                            <button style="background:#f39c12;" onclick="editPlaylist('${key}')">曲を編集</button>
+                            <button style="background:#f39c12;" onclick="editPlaylist('${key}')">編集</button>
                             <button style="background:#95a5a6;" onclick="renamePlaylist('${key}')">名前</button>
                             <button style="background:#e74c3c;" onclick="deletePlaylist('${key}')">削除</button>
                         </div>
@@ -134,13 +114,10 @@
         });
 
         window.editPlaylist = async function(name) {
-            document.getElementById('edit-modal').style.display = 'flex';
-            document.getElementById('edit-modal-title').innerText = `「${name}」の曲一覧`;
+            document.getElementById('edit-modal').style.display = 'flex'; document.getElementById('edit-modal-title').innerText = `「${name}」の曲一覧`;
             document.getElementById('edit-modal-list').innerHTML = '<p style="color:#ccc;">読込中...</p>';
-            const pSnap = await ref.child('saved_playlists').child(name).once('value');
-            const playlist = pSnap.val() || [];
-            if (!Array.isArray(playlist) || playlist.length === 0) { document.getElementById('edit-modal-list').innerHTML = '<p style="color:#ccc;">曲がありません（またはデータが壊れています）。</p>'; return; }
-            
+            const pSnap = await ref.child('saved_playlists').child(name).once('value'); const playlist = pSnap.val() || [];
+            if (!Array.isArray(playlist) || playlist.length === 0) { document.getElementById('edit-modal-list').innerHTML = '<p style="color:#ccc;">曲がありません。</p>'; return; }
             let html = '';
             playlist.forEach((track, i) => {
                 html += `
@@ -153,196 +130,114 @@
         }
 
         window.deleteTrackFromSaved = async function(eventName, trackIndex) {
-            if (!confirm(`この曲をリストから削除しますか？`)) return;
-            document.getElementById('edit-modal-list').innerHTML = '<p style="color:#ccc;">削除処理中...</p>';
+            if (!confirm(`この曲を削除しますか？`)) return; document.getElementById('edit-modal-list').innerHTML = '<p style="color:#ccc;">削除処理中...</p>';
             try {
-                const pSnap = await ref.child('saved_playlists').child(eventName).once('value');
-                const aSnap = await ref.child('saved_audio').child(eventName).once('value');
+                const pSnap = await ref.child('saved_playlists').child(eventName).once('value'); const aSnap = await ref.child('saved_audio').child(eventName).once('value');
                 let pList = pSnap.val() || []; let audioData = aSnap.val() || {intros:[], sabis:[]};
                 if(Array.isArray(pList)) pList.splice(trackIndex, 1);
-                if (audioData.intros) audioData.intros.splice(trackIndex, 1);
-                if (audioData.sabis) audioData.sabis.splice(trackIndex, 1);
-                await ref.child('saved_playlists').child(eventName).set(pList);
-                await ref.child('saved_audio').child(eventName).set(audioData);
+                if (audioData.intros) audioData.intros.splice(trackIndex, 1); if (audioData.sabis) audioData.sabis.splice(trackIndex, 1);
+                await ref.child('saved_playlists').child(eventName).set(pList); await ref.child('saved_audio').child(eventName).set(audioData);
                 editPlaylist(eventName);
             } catch(e) { alert("エラー: " + e.message); editPlaylist(eventName); }
         }
 
         window.deletePlaylist = async function(name) {
-            if (confirm(`「${name}」をリストごと削除しますか？\n※ずっと読み込み中になるエラーリストもこれで消せます。`)) {
-                await ref.child('saved_playlists').child(name).remove(); await ref.child('saved_audio').child(name).remove();
-                if(document.getElementById('event-name').value === name) resetForm();
-            }
+            if (confirm(`「${name}」をリストごと削除しますか？`)) { await ref.child('saved_playlists').child(name).remove(); await ref.child('saved_audio').child(name).remove(); if(document.getElementById('event-name').value === name) resetForm(); }
         }
 
         window.renamePlaylist = async function(oldName) {
-            const newName = prompt(`新しい名前を入力:`, oldName);
-            if (!newName || newName === oldName) return;
-            const safeName = newName.trim().replace(/[.#$[\]]/g, "_");
+            const newName = prompt(`新しい名前を入力:`, oldName); if (!newName || newName === oldName) return; const safeName = newName.trim().replace(/[.#$[\]]/g, "_");
             try {
-                const pSnap = await ref.child('saved_playlists').child(oldName).once('value');
-                const aSnap = await ref.child('saved_audio').child(oldName).once('value');
-                await ref.child('saved_playlists').child(safeName).set(pSnap.val());
-                await ref.child('saved_audio').child(safeName).set(aSnap.val());
-                await ref.child('saved_playlists').child(oldName).remove();
-                await ref.child('saved_audio').child(oldName).remove();
+                const pSnap = await ref.child('saved_playlists').child(oldName).once('value'); const aSnap = await ref.child('saved_audio').child(oldName).once('value');
+                await ref.child('saved_playlists').child(safeName).set(pSnap.val()); await ref.child('saved_audio').child(safeName).set(aSnap.val());
+                await ref.child('saved_playlists').child(oldName).remove(); await ref.child('saved_audio').child(oldName).remove();
             } catch(e) { alert("エラー: " + e.message); }
         }
 
         window.prepareAppend = function(name) {
             document.getElementById('form-title').innerText = `「${name}」に曲を追加`; document.getElementById('form-title').style.color = "#3498db";
-            document.getElementById('event-name').value = name; document.getElementById('event-name').readOnly = true;
-            document.getElementById('edit-mode').value = 'append'; document.getElementById('btn-cancel').style.display = 'block';
+            document.getElementById('event-name').value = name; document.getElementById('event-name').readOnly = true; document.getElementById('edit-mode').value = 'append'; document.getElementById('btn-cancel').style.display = 'block';
         }
 
         window.resetForm = function() {
             document.getElementById('form-title').innerText = `新規プレイリスト作成`; document.getElementById('form-title').style.color = "#f1c40f";
-            document.getElementById('event-name').value = ''; document.getElementById('event-name').readOnly = false;
-            document.getElementById('edit-mode').value = 'new'; document.getElementById('btn-cancel').style.display = 'none';
-            pendingTracks = []; introFile = null; sabiFile = null; updateFileInfo(); renderPendingList();
-            document.getElementById('status').style.display = 'none';
+            document.getElementById('event-name').value = ''; document.getElementById('event-name').readOnly = false; document.getElementById('edit-mode').value = 'new'; document.getElementById('btn-cancel').style.display = 'none';
+            pendingTracks = []; introFile = null; sabiFile = null; updateFileInfo(); renderPendingList(); document.getElementById('status').style.display = 'none';
         }
 
-        document.getElementById('intro-file').addEventListener('change', e => { 
-            introFile = e.target.files[0]; updateFileInfo();
-        });
-        document.getElementById('sabi-file').addEventListener('change', e => { 
-            sabiFile = e.target.files[0]; updateFileInfo();
-        });
-        
-        function updateFileInfo() {
-            document.getElementById('file-info').innerHTML = `イントロ: ${introFile ? introFile.name : "<span style='color:#e74c3c'>未選択</span>"} <br> サビ: ${sabiFile ? sabiFile.name : "未選択"}`;
-        }
+        document.getElementById('intro-file').addEventListener('change', e => { introFile = e.target.files[0]; updateFileInfo(); });
+        document.getElementById('sabi-file').addEventListener('change', e => { sabiFile = e.target.files[0]; updateFileInfo(); });
+        function updateFileInfo() { document.getElementById('file-info').innerHTML = `イントロ: ${introFile ? introFile.name : "<span style='color:#e74c3c'>未選択</span>"} <br> サビ: ${sabiFile ? sabiFile.name : "未選択"}`; }
 
         window.addTrack = function() {
-            const title = document.getElementById('track-title').value.trim();
-            if (!title || !introFile) return alert("曲名とイントロ音源は必須です！");
+            const title = document.getElementById('track-title').value.trim(); if (!title || !introFile) return alert("曲名とイントロ音源は必須です！");
             pendingTracks.push({ title: title, introFile: introFile, sabiFile: sabiFile });
-            document.getElementById('track-title').value = ""; introFile = null; sabiFile = null;
-            document.getElementById('intro-file').value = ""; document.getElementById('sabi-file').value = "";
-            updateFileInfo(); renderPendingList();
+            document.getElementById('track-title').value = ""; introFile = null; sabiFile = null; document.getElementById('intro-file').value = ""; document.getElementById('sabi-file').value = ""; updateFileInfo(); renderPendingList();
         }
 
         function renderPendingList() {
             const listDiv = document.getElementById('pending-list');
-            if (pendingTracks.length === 0) {
-                listDiv.innerHTML = "(まだ曲がありません)"; document.getElementById('btn-upload').style.display = 'none'; return;
-            }
-            let html = "";
-            pendingTracks.forEach((t, i) => {
+            if (pendingTracks.length === 0) { listDiv.innerHTML = "(まだ曲がありません)"; document.getElementById('btn-upload').style.display = 'none'; return; }
+            let html = ""; pendingTracks.forEach((t, i) => {
                 html += `<div style="background:#1a252f; padding:8px; margin-bottom:5px; border-radius:4px; display:flex; justify-content:space-between; align-items:center;">
                     <div style="text-align:left;">${i+1}. ${t.title} <span style="font-size:0.7rem;color:#7f8c8d;">[${t.sabiFile ? 'サビ有' : 'サビ無'}]</span></div>
-                    <button onclick="removeTrack(${i})" style="width:auto; padding:4px 10px; margin:0; background:#e74c3c; border-radius:4px; font-size:0.8rem;">外す</button>
-                </div>`;
-            });
-            listDiv.innerHTML = html; document.getElementById('btn-upload').style.display = 'block';
+                    <button onclick="removeTrack(${i})" style="width:auto; padding:4px 10px; margin:0; background:#e74c3c; border-radius:4px; font-size:0.8rem;">外す</button></div>`;
+            }); listDiv.innerHTML = html; document.getElementById('btn-upload').style.display = 'block';
         }
 
         window.removeTrack = function(i) { pendingTracks.splice(i, 1); renderPendingList(); }
 
-        // ★★★ 完全に復活した「動画から音声のみを抽出・圧縮」する魔法の関数 ★★★
-        async function extractAndCompressAudio(file) {
-            try {
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                const arrayBuffer = await file.arrayBuffer();
-                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-                
-                const maxSeconds = 15; // 15秒でカット
-                const duration = Math.min(audioBuffer.duration, maxSeconds);
-                const sampleRate = 22050; 
-                
-                const offlineCtx = new OfflineAudioContext(1, sampleRate * duration, sampleRate);
-                const source = offlineCtx.createBufferSource();
-                source.buffer = audioBuffer;
-                source.connect(offlineCtx.destination);
-                source.start(0);
-                
-                const renderedBuffer = await offlineCtx.startRendering();
-                const wavBlob = bufferToWav(renderedBuffer);
-                
-                return await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.readAsDataURL(wavBlob);
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = e => reject(e);
-                });
-            } catch (e) {
-                // 万が一動画の変換に失敗した場合の保険（ファイルが6MB以下ならそのまま送る）
-                if (file.size <= 6 * 1024 * 1024) {
-                    return await new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.readAsDataURL(file);
-                        reader.onload = () => resolve(reader.result);
-                        reader.onerror = err => reject(err);
-                    });
-                } else {
-                    throw new Error("ファイルが大きすぎます。iPhoneの「写真アプリ」で動画の長さを『10秒以内』に短くカット（トリミング）してから、もう一度選んでください！");
-                }
-            }
-        }
-
+        const fileToBase64 = (file) => new Promise((resolve, reject) => {
+            const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = () => resolve(reader.result); reader.onerror = e => reject(e);
+        });
+        
         function bufferToWav(abuffer) {
-            const numOfChan = abuffer.numberOfChannels, length = abuffer.length * numOfChan * 2 + 44,
-                  buffer = new ArrayBuffer(length), view = new DataView(buffer), channels = [], sampleRate = abuffer.sampleRate;
-            let offset = 0, pos = 0;
-            function setUint16(data) { view.setUint16(offset, data, true); offset += 2; }
-            function setUint32(data) { view.setUint32(offset, data, true); offset += 4; }
-            setUint32(0x46464952); setUint32(length - 8); setUint32(0x45564157);
-            setUint32(0x20746d66); setUint32(16); setUint16(1); setUint16(numOfChan);
-            setUint32(sampleRate); setUint32(sampleRate * 2 * numOfChan); setUint16(numOfChan * 2); setUint16(16);
-            setUint32(0x61746164); setUint32(length - pos - 4);
+            const numOfChan = abuffer.numberOfChannels, length = abuffer.length * numOfChan * 2 + 44, buffer = new ArrayBuffer(length), view = new DataView(buffer), channels = [], sampleRate = abuffer.sampleRate; let offset = 0, pos = 0;
+            function setUint16(data) { view.setUint16(offset, data, true); offset += 2; } function setUint32(data) { view.setUint32(offset, data, true); offset += 4; }
+            setUint32(0x46464952); setUint32(length - 8); setUint32(0x45564157); setUint32(0x20746d66); setUint32(16); setUint16(1); setUint16(numOfChan);
+            setUint32(sampleRate); setUint32(sampleRate * 2 * numOfChan); setUint16(numOfChan * 2); setUint16(16); setUint32(0x61746164); setUint32(length - pos - 4);
             for(let i = 0; i < abuffer.numberOfChannels; i++) channels.push(abuffer.getChannelData(i));
-            while(pos < abuffer.length) {
-                for(let i = 0; i < numOfChan; i++) {
-                    let sample = Math.max(-1, Math.min(1, channels[i][pos]));
-                    sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767)|0;
-                    view.setInt16(offset, sample, true);
-                }
-                pos++;
-            }
+            while(pos < abuffer.length) { for(let i = 0; i < numOfChan; i++) { let sample = Math.max(-1, Math.min(1, channels[i][pos])); sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767)|0; view.setInt16(offset, sample, true); } pos++; }
             return new Blob([buffer], {type: "audio/wav"});
         }
 
-        document.getElementById('btn-upload').addEventListener('click', async () => {
-            const eventName = document.getElementById('event-name').value.trim().replace(/[.#$[\]]/g, "_");
-            if (!eventName) return alert("リストの名前を入力してください！");
-            const mode = document.getElementById('edit-mode').value;
-            const statusDiv = document.getElementById('status'); 
-            statusDiv.innerHTML = "処理中...<br>画面を閉じないでください"; 
-            statusDiv.style.display = 'block';
+        // ★★★ 動画から音声を抽出する魔法の処理 ★★★
+        async function extractAndCompressAudio(file) {
+            // AudioContextを作成（エラーを防ぐため）
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') await audioCtx.resume();
 
-            try {
-                let startIndex = 0; let existingPlaylist = [];
-                if (mode === 'append') {
-                    const snap = await ref.child('saved_playlists').child(eventName).once('value');
-                    existingPlaylist = snap.val() || []; startIndex = existingPlaylist.length;
+            if (file.type.startsWith('audio/')) {
+                // MP3などの音声ファイルの場合は高速変換
+                try {
+                    const arrayBuffer = await file.arrayBuffer(); const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                    const duration = Math.min(audioBuffer.duration, 15); const sampleRate = 22050; 
+                    const offlineCtx = new OfflineAudioContext(1, sampleRate * duration, sampleRate);
+                    const source = offlineCtx.createBufferSource(); source.buffer = audioBuffer; source.connect(offlineCtx.destination); source.start(0);
+                    const renderedBuffer = await offlineCtx.startRendering(); const wavBlob = bufferToWav(renderedBuffer);
+                    return await fileToBase64(new File([wavBlob], "audio.wav", {type: "audio/wav"}));
+                } catch (e) {
+                    if (file.size <= 6 * 1024 * 1024) return await fileToBase64(file);
+                    throw new Error("音声の変換に失敗しました。");
                 }
-
-                for (let i = 0; i < pendingTracks.length; i++) {
-                    const targetIdx = startIndex + i; const t = pendingTracks[i];
-                    statusDiv.innerHTML = `[${i + 1}/${pendingTracks.length}] ${t.title}<br>動画/音声を圧縮して送信中...`;
+            } else {
+                // 動画ファイルの場合は、裏でミュート再生して「録音」することで音だけを抽出する
+                return new Promise((resolve, reject) => {
+                    const video = document.createElement('video');
+                    video.src = URL.createObjectURL(file); video.playsInline = true; video.muted = true; video.crossOrigin = "anonymous";
                     
-                    const introBase64 = await extractAndCompressAudio(t.introFile);
-                    await ref.child('saved_audio').child(eventName).child('intros').child(targetIdx).set(introBase64);
-                    
-                    let sabiBase64 = "";
-                    if (t.sabiFile) { 
-                        statusDiv.innerHTML = `[${i + 1}/${pendingTracks.length}] ${t.title} (サビ)<br>動画/音声を圧縮して送信中...`; 
-                        sabiBase64 = await extractAndCompressAudio(t.sabiFile); 
-                    }
-                    await ref.child('saved_audio').child(eventName).child('sabis').child(targetIdx).set(sabiBase64);
-                    
-                    existingPlaylist.push({ introName: t.title, sabiName: t.sabiFile ? `${t.title}(サビ)` : "" });
-                }
-
-                statusDiv.innerText = "データベースに情報を同期中...";
-                await ref.child('saved_playlists').child(eventName).set(existingPlaylist);
-                
-                statusDiv.innerText = mode === 'append' ? `完了！「${eventName}」に追加されました。` : `完了！新規リスト「${eventName}」が保存されました。`;
-                setTimeout(() => { resetForm(); }, 3000);
-
-            } catch (e) { alert(e.message); statusDiv.innerText = "エラー発生"; }
-        });
-    </script>
-</body>
-</html>
+                    video.onloadedmetadata = () => {
+                        try {
+                            const source = audioCtx.createMediaElementSource(video); const dest = audioCtx.createMediaStreamDestination(); source.connect(dest);
+                            let mimeType = 'audio/mp4'; if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'audio/webm';
+                            let recorder; try { recorder = new MediaRecorder(dest.stream, { mimeType: mimeType }); } catch (e) { recorder = new MediaRecorder(dest.stream); }
+                            
+                            const chunks = []; recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+                            recorder.onstop = () => {
+                                const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/mp4' });
+                                fileToBase64(blob).then(res => { URL.revokeObjectURL(video.src); resolve(res); }).catch(reject);
+                            };
+                            
+                            const playDuration = Math.min(video.duration, 15); // 最大15秒
+                            recorder.start();
+                            video.play().then(() => {
