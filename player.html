@@ -18,30 +18,28 @@
         #rank-info { margin-top: 15px; font-size: 1rem; color: #999; }
         #audio-status { font-size:0.8rem; color:#3498db; margin-top:10px; }
         
-        #text-answer-screen { display: none; margin-top: 20px; }
+        #countdown-timer { font-size: 2rem; font-weight: bold; color: #e74c3c; margin: 10px 0; display: none; }
+
+        #text-answer-screen { display: none; margin-bottom: 20px; }
         #answer-input { font-size: 1.5rem; padding: 15px; width: 90%; border: 3px solid #e05275; border-radius: 12px; box-shadow: 0 4px 10px rgba(224,82,117,0.2); }
-        #live-answer-box { display: none; margin-top: 20px; background: #fff0f2; padding: 15px; border-radius: 8px; border: 1px solid #e05275; }
+        #live-answer-box { display: none; margin-bottom: 20px; background: #fff0f2; padding: 15px; border-radius: 8px; border: 1px solid #e05275; }
         #live-answer-label { font-size: 1rem; color: #e05275; margin-bottom: 5px; font-weight: bold; }
         #live-answer-text { font-size: 2rem; font-weight: bold; color: #333; min-height: 2.5rem; word-break: break-all; }
 
-        /* LINE内ブラウザ警告 */
         #line-warning { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #e74c3c; color: white; z-index: 10000; padding: 40px 20px; box-sizing: border-box; }
         #line-warning h2 { color: white; font-size: 1.5rem; margin-bottom: 20px; }
         #line-warning p { font-size: 1.1rem; line-height: 1.8; }
 
-        /* スマホ用音源ロック解除 */
         #unlock-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(44, 62, 80, 0.95); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; }
         #btn-unlock { font-size: 1.5rem; font-weight: bold; padding: 20px 40px; background: #e05275; color: white; border: none; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 20px rgba(224,82,117,0.5); }
     </style>
 </head>
 <body>
-    <!-- LINEアプリ内ブラウザ警告 -->
     <div id="line-warning">
-        <h2>LINEのブラウザでは<br>音が鳴りません！</h2>
-        <p>画面右下（または右上）の<br><strong>「︙」や「≡」などのメニューボタン</strong>を押して、<br><br><strong>「Safariで開く」</strong><br>または<br><strong>「ブラウザ（Chrome）で開く」</strong><br><br>を選んでから参加してください。</p>
+        <h2>LINEのブラウザでは<br>音が鳴りません</h2>
+        <p>画面右下（または右上）の<br><strong>メニューボタン</strong>を押して、<br><br><strong>「Safariで開く」</strong><br>または<br><strong>「ブラウザで開く」</strong><br><br>を選んでから参加してください。</p>
     </div>
 
-    <!-- スマホ音源ロック解除 -->
     <div id="unlock-overlay">
         <h2 style="margin-bottom: 20px;">システムの準備ができました</h2>
         <p style="margin-bottom: 40px; line-height: 1.6;">スマホのセキュリティを解除するため<br>下のボタンをタップしてください</p>
@@ -57,8 +55,6 @@
         <div id="game-screen">
             <div id="display-name" style="margin-bottom: 20px; font-size:1.2rem; color:#666;"></div>
             
-            <button id="btn" disabled>準備中</button>
-            
             <div id="text-answer-screen">
                 <div style="font-size:1.2rem; color:#e05275; font-weight:bold; margin-bottom:10px;">あなたの解答順です</div>
                 <input type="text" id="answer-input" autocomplete="off" placeholder="答えを入力...">
@@ -68,6 +64,11 @@
                 <div id="live-answer-label">他チームが入力中...</div>
                 <div id="live-answer-text"></div>
             </div>
+
+            <!-- カウントダウンタイマー -->
+            <div id="countdown-timer">残り 10 秒</div>
+
+            <button id="btn" disabled>準備中</button>
 
             <div id="status"></div>
             <div id="rank-info"></div>
@@ -96,14 +97,13 @@
         let musicPlayer = new Audio(); let sabiPlayer = new Audio();
         let audioData = { intros: [], sabis: [] }; let currentEventName = ""; let lastJudgment = null;
         let audioTarget = 'monitor'; let currentAnswerMode = 'oral'; let myName = "";
+        let timerInterval = null;
 
-        // LINEブラウザ判定
         if (navigator.userAgent.includes("Line") || navigator.userAgent.includes("LINE")) {
             document.getElementById('line-warning').style.display = 'block';
             document.getElementById('unlock-overlay').style.display = 'none';
         }
 
-        // スマホ音源ロック解除
         document.getElementById('btn-unlock').addEventListener('click', () => {
             if (audioCtx.state === 'suspended') audioCtx.resume();
             const silentMp3 = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU5LjI3LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIAD+////7/X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX1//OEAAAAAEMAAAeAAAAAEQAAH//OEAAAAAEMAAAeAAAAAEQAAH//OEAAAAAEMAAAeAAAAAEQAAH";
@@ -153,7 +153,6 @@
             const data = snapshot.val(); if (!data || !audioData.intros) return;
             const action = data.action; const idx = data.track_index;
             if (audioTarget !== MY_ROLE) { musicPlayer.pause(); sabiPlayer.pause(); return; }
-            
             if (action === 'play_intro') { sabiPlayer.pause(); if (audioData.intros[idx]) { musicPlayer.src = audioData.intros[idx]; musicPlayer.currentTime = 0; musicPlayer.play().catch(e=>{}); } } 
             else if (action === 'play_intro_resume') { sabiPlayer.pause(); if (musicPlayer.paused) musicPlayer.play().catch(e=>{}); } 
             else if (action === 'pause_intro') { musicPlayer.pause(); } 
@@ -168,8 +167,23 @@
 
         ref.on('value', (snapshot) => {
             const data = snapshot.val() || {}; const state = data.state || 'closed'; const queue = data.queue || []; const idx = data.current_index || 0; const judgment = data.judgment;
-            const currentAnswer = data.current_answer || "";
+            const currentAnswer = data.current_answer || ""; const deadline = data.deadline;
             const myRankIndex = queue.indexOf(myName); const amIInQueue = myRankIndex !== -1;
+
+            clearInterval(timerInterval);
+            const timerDiv = document.getElementById('countdown-timer');
+            if (idx < queue.length && !judgment && deadline) {
+                timerDiv.style.display = 'block';
+                timerInterval = setInterval(() => {
+                    const remain = Math.max(0, deadline - Date.now());
+                    const sec = Math.ceil(remain / 1000);
+                    timerDiv.innerText = `残り ${sec} 秒`;
+                    timerDiv.style.color = sec <= 3 ? '#e74c3c' : '#555';
+                    if (remain <= 0) { clearInterval(timerInterval); timerDiv.innerText = "時間切れ！"; }
+                }, 100);
+            } else {
+                timerDiv.style.display = 'none';
+            }
 
             textAnswerScreen.style.display = 'none';
             liveAnswerBox.style.display = 'none';
@@ -185,9 +199,9 @@
                 if (amIInQueue) {
                     if (myRankIndex === idx) {
                         if (judgment === 'correct') { 
-                            btn.style.display = 'inline-block'; btn.style.background = "#f39c12"; btn.innerText = "正解"; status.style.color = "#f39c12"; status.innerText = "正解"; rankInfo.innerText = ""; answerInput.value = "";
+                            btn.style.display = 'inline-block'; btn.style.background = "#f39c12"; btn.innerText = "⭕️"; status.style.color = "#f39c12"; status.innerText = "正解"; rankInfo.innerText = ""; answerInput.value = "";
                         } else if (judgment === 'incorrect') { 
-                            btn.style.display = 'inline-block'; btn.style.background = "#4a90e2"; btn.innerText = "不正解"; status.style.color = "#4a90e2"; status.innerText = "不正解"; rankInfo.innerText = ""; answerInput.value = "";
+                            btn.style.display = 'inline-block'; btn.style.background = "#4a90e2"; btn.innerText = "❌"; status.style.color = "#4a90e2"; status.innerText = "不正解"; rankInfo.innerText = ""; answerInput.value = "";
                         } else { 
                             if (currentAnswerMode === 'text') {
                                 btn.style.display = 'none'; textAnswerScreen.style.display = 'block'; status.innerText = ""; rankInfo.innerText = "";
