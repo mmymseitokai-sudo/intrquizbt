@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>音源アップローダー（動画録音抽出版）</title>
+    <title>音源アップローダー（完全修復版）</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { font-family: -apple-system, sans-serif; text-align: center; padding: 20px; background: #34495e; color: #ecf0f1; margin: 0; }
@@ -10,21 +10,29 @@
         h1 { font-size: 1.3rem; font-weight: bold; color: #bdc3c7; margin-bottom: 20px; }
         .setup-area { background: #34495e; padding: 20px; border-radius: 8px; text-align: left; margin-bottom: 20px; }
         .area-title { font-size: 1.1rem; font-weight: bold; color: #f1c40f; margin-top: 0; border-bottom: 1px solid #4f5f6f; padding-bottom: 8px; margin-bottom: 15px; }
-        .list-item { background: #1a252f; padding: 12px; margin-bottom: 10px; border-radius: 6px; display: flex; flex-direction: column; text-align: left; }
+        .list-item { background: #1a252f; padding: 12px; margin-bottom: 10px; border-radius: 6px; display: flex; flex-direction: column; text-align: left; border-left: 4px solid #3498db; }
+        .list-item.broken { border-left: 4px solid #e74c3c; }
         .list-name { font-weight: bold; color: #ecf0f1; margin-bottom: 8px; font-size: 1.1rem; }
         .list-actions { display: flex; gap: 5px; flex-wrap: wrap; }
-        .list-actions button { width: auto; padding: 6px 10px; font-size: 0.8rem; margin: 0; border-radius: 4px; }
+        .list-actions button { width: auto; padding: 6px 10px; font-size: 0.8rem; margin: 0; border-radius: 4px; font-weight: bold; color: white; border: none; cursor: pointer; }
         input[type="text"] { font-size: 1.1rem; padding: 12px; width: calc(100% - 24px); margin-bottom: 15px; border: 1px solid #7f8c8d; border-radius: 6px; background: #2c3e50; color: white; outline: none; }
         button { font-size: 1rem; padding: 12px; margin: 5px 0; width: 100%; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; color: white; }
         #status { font-weight: bold; margin-top: 15px; color: #f1c40f; display: none; background: #1a252f; padding: 10px; border-radius: 6px; font-size: 0.9rem; line-height: 1.5; }
+        #line-warning { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #e74c3c; color: white; z-index: 10000; padding: 40px 20px; box-sizing: border-box; }
     </style>
 </head>
 <body>
+    <div id="line-warning">
+        <h2 style="color: white; font-size: 1.5rem; margin-bottom: 20px;">LINEブラウザ警告</h2>
+        <p style="font-size: 1.1rem; line-height: 1.8;">画面右下のメニューボタンから<br><strong>「Safariで開く」</strong><br>を選んでから操作してください。</p>
+    </div>
+
+    <!-- 曲の個別編集用モーダル -->
     <div id="edit-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; justify-content:center; align-items:center;">
         <div style="background:#2c3e50; padding:20px; border-radius:12px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto; text-align:left;">
             <h2 id="edit-modal-title" style="color:#f1c40f; margin-top:0; font-size:1.2rem;">曲の編集</h2>
             <div id="edit-modal-list"></div>
-            <button onclick="document.getElementById('edit-modal').style.display='none'" style="background:#7f8c8d; margin-top:15px; width:100%;">閉じる</button>
+            <button onclick="document.getElementById('edit-modal').style.display='none'" style="background:#7f8c8d; margin-top:15px;">閉じる</button>
         </div>
     </div>
 
@@ -46,8 +54,8 @@
         <div class="setup-area" style="background:#293a4c;">
             <h2 class="area-title" style="color:#2ecc71;">2. 1曲ずつ登録する</h2>
             <p style="font-size:0.85rem; color:#f1c40f; font-weight:bold; margin-bottom:5px;">
-                動画（画面録画等）をそのまま選んでOKです！<br>
-                <span style="color:#e74c3c;">※動画の場合は裏で音だけを抽出するため、送信時に1曲あたり数秒〜15秒の待ち時間が発生します。</span>
+                ※動画（画面録画等）をそのまま選んでOKです！<br>
+                <span style="color:#e74c3c;">※iPhoneの場合、あらかじめ「写真アプリ」で動画の長さを「10秒以内」にトリミングしておくと確実です。</span>
             </p>
             
             <input type="text" id="track-title" placeholder="曲名（例：マリーゴールド）" style="margin-top:10px;">
@@ -74,11 +82,19 @@
         </div>
         
         <div id="status"></div>
+
+        <!-- 最終兵器：データベース強制リセットボタン -->
+        <button onclick="forceResetDB()" style="background:transparent; border:1px solid #e74c3c; color:#e74c3c; font-size:0.8rem; margin-top:30px;">⚠️ データベースの全保存リストを強制消去する</button>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script>
+        if (navigator.userAgent.includes("Line") || navigator.userAgent.includes("LINE")) {
+            if (!location.search.includes("openExternalBrowser=1")) location.href = location.href + (location.href.includes("?") ? "&" : "?") + "openExternalBrowser=1";
+            document.getElementById('line-warning').style.display = 'block';
+        }
+
         const firebaseConfig = {
             apiKey: "AIzaSyDzIx3CN5EnlznHgXMDNDb5Bulk9lpQpBw",
             authDomain: "mmym-intr-hyosbt.firebaseapp.com",
@@ -94,37 +110,62 @@
 
         let pendingTracks = []; let introFile = null; let sabiFile = null;
 
+        // ★どんなエラーデータでも絶対にフリーズさせないリスト表示処理
         ref.child('saved_playlists').on('value', (snap) => {
-            const data = snap.val() || {}; const container = document.getElementById('playlist-container'); container.innerHTML = '';
-            const keys = Object.keys(data);
-            if(keys.length === 0) { container.innerHTML = '<p style="font-size:0.85rem; color:#95a5a6;">保存されているリストはありません。</p>'; return; }
-            keys.forEach(key => {
-                const playlist = data[key]; const count = Array.isArray(playlist) ? playlist.length : "エラー";
-                container.innerHTML += `
-                    <div class="list-item">
-                        <div class="list-name">${key} <span style="font-size:0.8rem;color:#95a5a6;">(${count}曲)</span></div>
-                        <div class="list-actions">
-                            <button style="background:#3498db;" onclick="prepareAppend('${key}')">追加</button>
-                            <button style="background:#f39c12;" onclick="editPlaylist('${key}')">編集</button>
-                            <button style="background:#95a5a6;" onclick="renamePlaylist('${key}')">名前</button>
-                            <button style="background:#e74c3c;" onclick="deletePlaylist('${key}')">削除</button>
-                        </div>
-                    </div>`;
-            });
+            try {
+                const data = snap.val() || {}; 
+                const container = document.getElementById('playlist-container'); 
+                container.innerHTML = '';
+                const keys = Object.keys(data);
+                
+                if(keys.length === 0) { 
+                    container.innerHTML = '<p style="font-size:0.85rem; color:#95a5a6;">保存されているリストはありません。</p>'; return; 
+                }
+                
+                let html = '';
+                keys.forEach(key => {
+                    const playlist = data[key];
+                    // 壊れている（配列ではない）場合はエラーとして表示
+                    const isBroken = !Array.isArray(playlist);
+                    const count = isBroken ? "⚠️データ破損" : playlist.length + "曲";
+                    const brokenClass = isBroken ? "broken" : "";
+                    
+                    html += `
+                        <div class="list-item ${brokenClass}">
+                            <div class="list-name">${key} <span style="font-size:0.8rem;color:#95a5a6;">(${count})</span></div>
+                            <div class="list-actions">
+                                ${!isBroken ? `<button style="background:#3498db;" onclick="prepareAppend('${key}')">追加</button>` : ''}
+                                ${!isBroken ? `<button style="background:#f39c12;" onclick="editPlaylist('${key}')">編集</button>` : ''}
+                                ${!isBroken ? `<button style="background:#95a5a6;" onclick="renamePlaylist('${key}')">名前</button>` : ''}
+                                <button style="background:#e74c3c;" onclick="deletePlaylist('${key}')">削除</button>
+                            </div>
+                        </div>`;
+                });
+                container.innerHTML = html;
+            } catch (error) {
+                document.getElementById('playlist-container').innerHTML = '<p style="color:#e74c3c;">リストの読み込みに失敗しました。一番下の「強制消去」ボタンを押してリセットしてください。</p>';
+            }
         });
+
+        // データベース強制リセット（最終兵器）
+        window.forceResetDB = async function() {
+            if (confirm("【警告】保存されているすべてのプレイリストと音源データを強制的に消去します。本当によろしいですか？")) {
+                await ref.child('saved_playlists').remove();
+                await ref.child('saved_audio').remove();
+                alert("強制リセットが完了しました。ページを再読み込みします。");
+                location.reload();
+            }
+        }
 
         window.editPlaylist = async function(name) {
             document.getElementById('edit-modal').style.display = 'flex'; document.getElementById('edit-modal-title').innerText = `「${name}」の曲一覧`;
             document.getElementById('edit-modal-list').innerHTML = '<p style="color:#ccc;">読込中...</p>';
             const pSnap = await ref.child('saved_playlists').child(name).once('value'); const playlist = pSnap.val() || [];
-            if (!Array.isArray(playlist) || playlist.length === 0) { document.getElementById('edit-modal-list').innerHTML = '<p style="color:#ccc;">曲がありません。</p>'; return; }
+            if (!Array.isArray(playlist) || playlist.length === 0) { document.getElementById('edit-modal-list').innerHTML = '<p style="color:#ccc;">曲がありません（または壊れています）。削除ボタンでリストごと消してください。</p>'; return; }
+            
             let html = '';
             playlist.forEach((track, i) => {
-                html += `
-                    <div style="background:#34495e; padding:10px; margin-bottom:8px; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
-                        <div style="color:white; font-size:0.9rem; word-break: break-all; margin-right:10px;">${i+1}. ${track.introName}</div>
-                        <button onclick="deleteTrackFromSaved('${name}', ${i})" style="width:auto; padding:6px 12px; margin:0; background:#e74c3c; font-size:0.8rem; font-weight:bold;">消す</button>
-                    </div>`;
+                html += `<div style="background:#34495e; padding:10px; margin-bottom:8px; border-radius:6px; display:flex; justify-content:space-between; align-items:center;"><div style="color:white; font-size:0.9rem; word-break: break-all; margin-right:10px;">${i+1}. ${track.introName}</div><button onclick="deleteTrackFromSaved('${name}', ${i})" style="width:auto; padding:6px 12px; margin:0; background:#e74c3c; font-size:0.8rem; font-weight:bold;">消す</button></div>`;
             });
             document.getElementById('edit-modal-list').innerHTML = html;
         }
@@ -201,43 +242,112 @@
             return new Blob([buffer], {type: "audio/wav"});
         }
 
-        // ★★★ 動画から音声を抽出する魔法の処理 ★★★
+        // ★★★ エラーを絶対に回避する、超安全な抽出プログラム ★★★
         async function extractAndCompressAudio(file) {
-            // AudioContextを作成（エラーを防ぐため）
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioCtx.state === 'suspended') await audioCtx.resume();
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') await audioCtx.resume();
 
-            if (file.type.startsWith('audio/')) {
-                // MP3などの音声ファイルの場合は高速変換
-                try {
-                    const arrayBuffer = await file.arrayBuffer(); const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-                    const duration = Math.min(audioBuffer.duration, 15); const sampleRate = 22050; 
+                if (file.type.startsWith('audio/')) {
+                    const arrayBuffer = await file.arrayBuffer(); 
+                    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                    const duration = Math.min(audioBuffer.duration, 15); 
+                    const sampleRate = 22050; 
                     const offlineCtx = new OfflineAudioContext(1, sampleRate * duration, sampleRate);
                     const source = offlineCtx.createBufferSource(); source.buffer = audioBuffer; source.connect(offlineCtx.destination); source.start(0);
                     const renderedBuffer = await offlineCtx.startRendering(); const wavBlob = bufferToWav(renderedBuffer);
                     return await fileToBase64(new File([wavBlob], "audio.wav", {type: "audio/wav"}));
-                } catch (e) {
-                    if (file.size <= 6 * 1024 * 1024) return await fileToBase64(file);
-                    throw new Error("音声の変換に失敗しました。");
+                } else {
+                    // ★iPhoneの動画抽出エラーを確実に回避するためのフォールバック処理★
+                    return await new Promise((resolve, reject) => {
+                        const video = document.createElement('video');
+                        video.src = URL.createObjectURL(file); video.playsInline = true; video.muted = true; video.crossOrigin = "anonymous";
+                        
+                        video.onloadedmetadata = () => {
+                            try {
+                                const source = audioCtx.createMediaElementSource(video); 
+                                const dest = audioCtx.createMediaStreamDestination(); 
+                                source.connect(dest);
+                                
+                                let mimeType = 'audio/mp4'; 
+                                if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'audio/webm';
+                                
+                                let recorder; 
+                                try { recorder = new MediaRecorder(dest.stream, { mimeType: mimeType }); } 
+                                catch (e) { recorder = new MediaRecorder(dest.stream); }
+                                
+                                const chunks = []; recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+                                recorder.onstop = () => {
+                                    const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/mp4' });
+                                    fileToBase64(blob).then(res => { URL.revokeObjectURL(video.src); resolve(res); }).catch(reject);
+                                };
+                                
+                                const playDuration = Math.min(video.duration, 15);
+                                recorder.start();
+                                video.play().then(() => {
+                                    setTimeout(() => { recorder.stop(); video.pause(); }, playDuration * 1000 + 500);
+                                }).catch(e => {
+                                    // 動画の裏側再生がブロックされた場合は、動画のまま送信する
+                                    if(file.size <= 6 * 1024 * 1024) fileToBase64(file).then(resolve).catch(reject);
+                                    else reject(new Error("動画のサイズが大きすぎます。iPhoneの「写真アプリ」で10秒以内にカットしてください。"));
+                                });
+                            } catch (e) { 
+                                if(file.size <= 6 * 1024 * 1024) fileToBase64(file).then(resolve).catch(reject);
+                                else reject(new Error("音声抽出エラー")); 
+                            }
+                        };
+                        video.onerror = () => {
+                            if(file.size <= 6 * 1024 * 1024) fileToBase64(file).then(resolve).catch(reject);
+                            else reject(new Error("動画ファイルが読み込めませんでした。"));
+                        }
+                    });
                 }
-            } else {
-                // 動画ファイルの場合は、裏でミュート再生して「録音」することで音だけを抽出する
-                return new Promise((resolve, reject) => {
-                    const video = document.createElement('video');
-                    video.src = URL.createObjectURL(file); video.playsInline = true; video.muted = true; video.crossOrigin = "anonymous";
+            } catch (e) {
+                // 最後の砦
+                if (file.size <= 6 * 1024 * 1024) return await fileToBase64(file);
+                else throw new Error("ファイルサイズが大きすぎます。iPhoneの「写真アプリ」で動画の長さを『10秒以内』に短くカット（トリミング）してから、もう一度選んでください！");
+            }
+        }
+
+        document.getElementById('btn-upload').addEventListener('click', async () => {
+            const eventName = document.getElementById('event-name').value.trim().replace(/[.#$[\]]/g, "_");
+            if (!eventName) return alert("リストの名前を入力してください！");
+            const mode = document.getElementById('edit-mode').value;
+            const statusDiv = document.getElementById('status'); 
+            statusDiv.innerHTML = "処理中...<br>画面を閉じないでください"; 
+            statusDiv.style.display = 'block';
+
+            try {
+                let startIndex = 0; let existingPlaylist = [];
+                if (mode === 'append') {
+                    const snap = await ref.child('saved_playlists').child(eventName).once('value');
+                    existingPlaylist = snap.val() || []; startIndex = existingPlaylist.length;
+                }
+
+                for (let i = 0; i < pendingTracks.length; i++) {
+                    const targetIdx = startIndex + i; const t = pendingTracks[i];
+                    statusDiv.innerHTML = `[${i + 1}/${pendingTracks.length}] ${t.title}<br>動画/音声を圧縮して送信中...<br><span style="color:#e74c3c;font-size:0.8rem;">（動画の場合は曲の秒数だけ時間がかかります）</span>`;
                     
-                    video.onloadedmetadata = () => {
-                        try {
-                            const source = audioCtx.createMediaElementSource(video); const dest = audioCtx.createMediaStreamDestination(); source.connect(dest);
-                            let mimeType = 'audio/mp4'; if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'audio/webm';
-                            let recorder; try { recorder = new MediaRecorder(dest.stream, { mimeType: mimeType }); } catch (e) { recorder = new MediaRecorder(dest.stream); }
-                            
-                            const chunks = []; recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-                            recorder.onstop = () => {
-                                const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/mp4' });
-                                fileToBase64(blob).then(res => { URL.revokeObjectURL(video.src); resolve(res); }).catch(reject);
-                            };
-                            
-                            const playDuration = Math.min(video.duration, 15); // 最大15秒
-                            recorder.start();
-                            video.play().then(() => {
+                    const introBase64 = await extractAndCompressAudio(t.introFile);
+                    await ref.child('saved_audio').child(eventName).child('intros').child(targetIdx).set(introBase64);
+                    
+                    let sabiBase64 = "";
+                    if (t.sabiFile) { 
+                        statusDiv.innerHTML = `[${i + 1}/${pendingTracks.length}] ${t.title} (サビ)<br>動画/音声を圧縮して送信中...`; 
+                        sabiBase64 = await extractAndCompressAudio(t.sabiFile); 
+                    }
+                    await ref.child('saved_audio').child(eventName).child('sabis').child(targetIdx).set(sabiBase64);
+                    existingPlaylist.push({ introName: t.title, sabiName: t.sabiFile ? `${t.title}(サビ)` : "" });
+                }
+
+                statusDiv.innerText = "データベースに情報を同期中...";
+                await ref.child('saved_playlists').child(eventName).set(existingPlaylist);
+                
+                statusDiv.innerText = mode === 'append' ? `完了！「${eventName}」に追加されました。` : `完了！新規リスト「${eventName}」が保存されました。`;
+                setTimeout(() => { resetForm(); }, 3000);
+
+            } catch (e) { alert(e.message); statusDiv.innerText = "エラー発生"; }
+        });
+    </script>
+</body>
+</html>
