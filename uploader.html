@@ -2,10 +2,10 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>音源アップローダー（動画・自動抽出対応版）</title>
+    <title>音源アップローダー（自動Safari起動版）</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: -apple-system, sans-serif; text-align: center; padding: 20px; background: #34495e; color: #ecf0f1; }
+        body { font-family: -apple-system, sans-serif; text-align: center; padding: 20px; background: #34495e; color: #ecf0f1; margin: 0; }
         .container { max-width: 600px; margin: 0 auto; background: #2c3e50; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
         h1 { font-size: 1.3rem; font-weight: bold; color: #bdc3c7; margin-bottom: 20px; }
         
@@ -21,9 +21,20 @@
         button { font-size: 1rem; padding: 12px; margin: 5px 0; width: 100%; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; color: white; }
         
         #status { font-weight: bold; margin-top: 15px; color: #f1c40f; display: none; background: #1a252f; padding: 10px; border-radius: 6px; font-size: 0.9rem; line-height: 1.5; }
+
+        /* LINE内ブラウザ警告 */
+        #line-warning { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #e74c3c; color: white; z-index: 10000; padding: 40px 20px; box-sizing: border-box; }
+        #line-warning h2 { color: white; font-size: 1.5rem; margin-bottom: 20px; }
+        #line-warning p { font-size: 1.1rem; line-height: 1.8; }
     </style>
 </head>
 <body>
+    <!-- LINEアプリ内ブラウザ警告 -->
+    <div id="line-warning">
+        <h2>LINEのブラウザでは<br>ファイルが選択できません！</h2>
+        <p>画面右下（または右上）の<br><strong>メニューボタン</strong>を押して、<br><br><strong>「Safariで開く」</strong><br>または<br><strong>「ブラウザで開く」</strong><br><br>を選んでから操作してください。</p>
+    </div>
+
     <!-- 曲の個別削除用モーダル -->
     <div id="edit-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; justify-content:center; align-items:center;">
         <div style="background:#2c3e50; padding:20px; border-radius:12px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto; text-align:left;">
@@ -34,13 +45,15 @@
     </div>
 
     <div class="container">
-        <h1>音源データ自動抽出アップローダー</h1>
+        <h1>音源データ管理・アップローダー</h1>
 
+        <!-- ① 保存済みプレイリストの管理 -->
         <div class="setup-area">
             <h2 class="area-title">保存済みのリスト管理</h2>
             <div id="playlist-container"><p style="font-size:0.85rem; color:#95a5a6;">読込中...</p></div>
         </div>
         
+        <!-- ② イベント名 -->
         <div class="setup-area">
             <h2 class="area-title" id="form-title">新規プレイリスト作成</h2>
             <p style="font-size:0.85rem; color:#bdc3c7;">1. リストの名前を入力</p>
@@ -48,9 +61,13 @@
             <input type="hidden" id="edit-mode" value="new">
         </div>
 
+        <!-- ③ 1曲ずつの登録エリア -->
         <div class="setup-area" style="background:#293a4c;">
             <h2 class="area-title" style="color:#2ecc71;">2. 1曲ずつ登録する</h2>
-            <p style="font-size:0.85rem; color:#f1c40f; font-weight:bold; margin-bottom:5px;">※動画（画面録画等）をそのまま選んでOKです！<br>システムが自動で音声を抽出し、最初の15秒間だけを軽くして保存します。</p>
+            <p style="font-size:0.85rem; color:#f1c40f; font-weight:bold; margin-bottom:5px;">
+                ※動画（画面録画等）をそのまま選んでOKです！<br>
+                <span style="color:#e74c3c;">※iPhoneの場合、あらかじめ写真アプリで動画の長さを「10秒以内」に短くカット（トリミング）してから選んでください。</span>
+            </p>
             
             <input type="text" id="track-title" placeholder="曲名（例：マリーゴールド）" style="margin-top:10px;">
             
@@ -67,6 +84,7 @@
             <button onclick="addTrack()" style="background:#2ecc71;">＋ この曲を送信リストに追加</button>
         </div>
 
+        <!-- ④ 追加された曲のリスト -->
         <div class="setup-area">
             <h2 class="area-title">3. 追加された曲リスト</h2>
             <div id="pending-list" style="margin-bottom: 15px; font-size:0.9rem; color:#95a5a6;">(まだ曲がありません)</div>
@@ -81,7 +99,16 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script>
-        // 設定データ
+        // ★ LINE内ブラウザ対策（自動でSafariを開かせる）
+        if (navigator.userAgent.includes("Line") || navigator.userAgent.includes("LINE")) {
+            // まだパラメータがついていなければ、パラメータをつけて強制再読み込み（自動でSafariに飛ぶ）
+            if (!location.search.includes("openExternalBrowser=1")) {
+                location.href = location.href + (location.href.includes("?") ? "&" : "?") + "openExternalBrowser=1";
+            }
+            // 自動遷移が効かないバージョンのLINE用に警告画面を出す
+            document.getElementById('line-warning').style.display = 'block';
+        }
+
         const firebaseConfig = {
             apiKey: "AIzaSyDzIx3CN5EnlznHgXMDNDb5Bulk9lpQpBw",
             authDomain: "mmym-intr-hyosbt.firebaseapp.com",
@@ -99,7 +126,6 @@
         let introFile = null;
         let sabiFile = null;
 
-        // 保存済みリストの表示
         ref.child('saved_playlists').on('value', (snap) => {
             const data = snap.val() || {}; const container = document.getElementById('playlist-container'); container.innerHTML = '';
             const keys = Object.keys(data);
@@ -118,7 +144,6 @@
             });
         });
 
-        // リスト内の個別編集
         window.editPlaylist = async function(name) {
             document.getElementById('edit-modal').style.display = 'flex';
             document.getElementById('edit-modal-title').innerText = `「${name}」の曲一覧`;
@@ -190,7 +215,6 @@
             document.getElementById('status').style.display = 'none';
         }
 
-        // ファイル容量チェック（50MBまでに緩和・動画もOK）
         function checkFileSize(file) {
             if (!file) return true;
             if (file.size > 50 * 1024 * 1024) {
@@ -239,50 +263,55 @@
 
         window.removeTrack = function(i) { pendingTracks.splice(i, 1); renderPendingList(); }
 
-        // ★★★ 動画から音声を抽出し、最初の15秒を軽量WAVデータに変換する魔法の関数 ★★★
         async function extractAndCompressAudio(file) {
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const arrayBuffer = await file.arrayBuffer();
-            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-            
-            // 最初の15秒間にカット
-            const maxSeconds = 15;
-            const duration = Math.min(audioBuffer.duration, maxSeconds);
-            const sampleRate = 22050; // 容量を極限まで軽くするためのレート
-            
-            const offlineCtx = new OfflineAudioContext(1, sampleRate * duration, sampleRate);
-            const source = offlineCtx.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(offlineCtx.destination);
-            source.start(0);
-            
-            const renderedBuffer = await offlineCtx.startRendering();
-            
-            // WAVファイル(Blob)に変換
-            const wavBlob = bufferToWav(renderedBuffer);
-            
-            // BlobをBase64文字列に変換して返す
-            return await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(wavBlob);
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = e => reject(e);
-            });
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const arrayBuffer = await file.arrayBuffer();
+                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                
+                const maxSeconds = 15;
+                const duration = Math.min(audioBuffer.duration, maxSeconds);
+                const sampleRate = 22050; 
+                
+                const offlineCtx = new OfflineAudioContext(1, sampleRate * duration, sampleRate);
+                const source = offlineCtx.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(offlineCtx.destination);
+                source.start(0);
+                
+                const renderedBuffer = await offlineCtx.startRendering();
+                const wavBlob = bufferToWav(renderedBuffer);
+                
+                return await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(wavBlob);
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = e => reject(e);
+                });
+            } catch (e) {
+                if (file.size <= 6 * 1024 * 1024) {
+                    return await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.readAsDataURL(file);
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = err => reject(err);
+                    });
+                } else {
+                    throw new Error("iPhoneの制限により自動変換できませんでした。\nファイルサイズが大きすぎます。\n\n【解決策】iPhoneの「写真」アプリを開き、動画の長さを『10秒以内』に短くカット（トリミング）してから、もう一度選んでください！");
+                }
+            }
         }
 
         function bufferToWav(abuffer) {
             const numOfChan = abuffer.numberOfChannels, length = abuffer.length * numOfChan * 2 + 44,
                   buffer = new ArrayBuffer(length), view = new DataView(buffer), channels = [], sampleRate = abuffer.sampleRate;
             let offset = 0, pos = 0;
-
             function setUint16(data) { view.setUint16(offset, data, true); offset += 2; }
             function setUint32(data) { view.setUint32(offset, data, true); offset += 4; }
-
             setUint32(0x46464952); setUint32(length - 8); setUint32(0x45564157);
             setUint32(0x20746d66); setUint32(16); setUint16(1); setUint16(numOfChan);
             setUint32(sampleRate); setUint32(sampleRate * 2 * numOfChan); setUint16(numOfChan * 2); setUint16(16);
             setUint32(0x61746164); setUint32(length - pos - 4);
-
             for(let i = 0; i < abuffer.numberOfChannels; i++) channels.push(abuffer.getChannelData(i));
             while(pos < abuffer.length) {
                 for(let i = 0; i < numOfChan; i++) {
@@ -295,13 +324,12 @@
             return new Blob([buffer], {type: "audio/wav"});
         }
 
-        // --- アップロード処理 ---
         document.getElementById('btn-upload').addEventListener('click', async () => {
             const eventName = document.getElementById('event-name').value.trim().replace(/[.#$[\]]/g, "_");
             if (!eventName) return alert("リストの名前を入力してください！");
             const mode = document.getElementById('edit-mode').value;
             const statusDiv = document.getElementById('status'); 
-            statusDiv.innerHTML = "音声自動抽出・圧縮中...<br>画面を閉じないでください"; 
+            statusDiv.innerHTML = "処理中...<br>画面を閉じないでください"; 
             statusDiv.style.display = 'block';
 
             try {
@@ -313,30 +341,12 @@
 
                 for (let i = 0; i < pendingTracks.length; i++) {
                     const targetIdx = startIndex + i; const t = pendingTracks[i];
-                    statusDiv.innerHTML = `[${i + 1}/${pendingTracks.length}] ${t.title}<br>音声を抽出して軽くしています...`;
+                    statusDiv.innerHTML = `[${i + 1}/${pendingTracks.length}] ${t.title}<br>送信の準備をしています...`;
                     
-                    // ★ 動画から音声を抽出し、15秒にカットして保存
                     const introBase64 = await extractAndCompressAudio(t.introFile);
                     await ref.child('saved_audio').child(eventName).child('intros').child(targetIdx).set(introBase64);
                     
                     let sabiBase64 = "";
                     if (t.sabiFile) { 
-                        statusDiv.innerHTML = `[${i + 1}/${pendingTracks.length}] ${t.title} (サビ)<br>音声を抽出して軽くしています...`; 
-                        sabiBase64 = await extractAndCompressAudio(t.sabiFile); 
-                    }
-                    await ref.child('saved_audio').child(eventName).child('sabis').child(targetIdx).set(sabiBase64);
-                    
-                    existingPlaylist.push({ introName: t.title, sabiName: t.sabiFile ? `${t.title}(サビ)` : "" });
-                }
-
-                statusDiv.innerText = "データベースに情報を同期中...";
-                await ref.child('saved_playlists').child(eventName).set(existingPlaylist);
-                
-                statusDiv.innerText = mode === 'append' ? `完了！「${eventName}」に追加されました。` : `完了！新規リスト「${eventName}」が保存されました。`;
-                setTimeout(() => { resetForm(); }, 3000);
-
-            } catch (e) { alert("送信エラー: " + e.message); statusDiv.innerText = "エラー発生"; }
-        });
-    </script>
-</body>
-</html>
+                        statusDiv.innerHTML = `[${i + 1}/${pendingTracks.length}] ${t.title} (サビ)<br>送信の準備をしています...`; 
+                        sabiBase64 = await extractAndCompressAudio
